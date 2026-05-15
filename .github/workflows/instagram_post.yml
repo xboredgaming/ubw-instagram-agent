@@ -59,31 +59,47 @@ jobs:
       - name: Determine slot and Lima date
         id: ctx
         run: |
-          H=$(date +%H)
           LIMA_DATE=$(date +%Y-%m-%d)
           SLOT=""
           IS_SUMMARY="false"
 
-          case "$H" in
-            10) SLOT=1 ;;
-            11) SLOT=2 ;;
-            13) SLOT=3 ;;
-            14) SLOT=4 ;;
-            18) SLOT=5 ;;
-            19) SLOT=6 ;;
-            20) IS_SUMMARY="true" ;;
-          esac
+          # Scheduled runs: map the cron expression directly to a slot.
+          # This is immune to GitHub firing the job late — the cron string
+          # tells us which slot was intended regardless of actual run time.
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ github.event.schedule }}" in
+              "0 15 * * 1-6")   SLOT=1 ;;
+              "30 16 * * 1-6")  SLOT=2 ;;
+              "0 18 * * 1-6")   SLOT=3 ;;
+              "30 19 * * 1-6")  SLOT=4 ;;
+              "0 23 * * 1-6")   SLOT=5 ;;
+              "30 0 * * 0,2-6") SLOT=6 ;;
+              "0 1 * * 0,2-6")  IS_SUMMARY="true" ;;
+            esac
+          fi
 
-          # workflow_dispatch: use provided slot if given
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.slot }}" ]; then
-            SLOT="${{ inputs.slot }}"
-            IS_SUMMARY="false"
+          # Manual runs: use provided slot input, or infer from Lima hour as fallback
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.slot }}" ]; then
+              SLOT="${{ inputs.slot }}"
+            else
+              H=$(date +%H)
+              case "$H" in
+                10) SLOT=1 ;;
+                11) SLOT=2 ;;
+                13) SLOT=3 ;;
+                14) SLOT=4 ;;
+                18) SLOT=5 ;;
+                19) SLOT=6 ;;
+                20) IS_SUMMARY="true" ;;
+              esac
+            fi
           fi
 
           echo "slot=$SLOT"             >> $GITHUB_OUTPUT
           echo "is_summary=$IS_SUMMARY" >> $GITHUB_OUTPUT
           echo "lima_date=$LIMA_DATE"   >> $GITHUB_OUTPUT
-          echo "Lima time: $(date +%H:%M) | slot=$SLOT | summary=$IS_SUMMARY"
+          echo "Lima time: $(date +%H:%M) | cron: ${{ github.event.schedule }} | slot=$SLOT | summary=$IS_SUMMARY"
 
       # Restore today's accumulated cost log so totals carry across the 6 daily runs.
       # New cache entry per run; restore-keys picks up the latest one for today.
@@ -115,9 +131,6 @@ jobs:
       - name: No task matched (check cron or provide a slot)
         if: steps.ctx.outputs.is_summary == 'false' && steps.ctx.outputs.slot == ''
         run: |
-          echo "No slot matched Lima time $(date +%H:%M)."
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "When triggering manually, always specify a slot (1–6)."
-            exit 1
-          fi
-          echo "GitHub cron fired outside the expected window — skipping gracefully."
+          echo "No slot matched. Lima time: $(date +%H:%M) | cron: ${{ github.event.schedule }}"
+          echo "For manual runs, always specify a slot (1–6)."
+          exit 1
