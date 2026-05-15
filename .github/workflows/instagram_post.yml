@@ -115,6 +115,9 @@ jobs:
       - name: No task matched (check cron or provide a slot)
         if: steps.ctx.outputs.is_summary == 'false' && steps.ctx.outputs.slot == ''
         run: |
-          echo "No slot matched Lima time $(date +%H:%M) and no slot input was provided."
-          echo "When triggering manually, always specify a slot (1–6)."
-          exit 1
+          echo "No slot matched Lima time $(date +%H:%M)."
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "When triggering manually, always specify a slot (1–6)."
+            exit 1
+          fi
+          echo "GitHub cron fired outside the expected window — skipping gracefully."
