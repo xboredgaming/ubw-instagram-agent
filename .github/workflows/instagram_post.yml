@@ -39,6 +39,9 @@ jobs:
       GMAIL_SENDER:             ${{ secrets.GMAIL_SENDER }}
       GMAIL_APP_PASSWORD:       ${{ secrets.GMAIL_APP_PASSWORD }}
       OPENAI_IMAGE_COST_USD:    ${{ secrets.OPENAI_IMAGE_COST_USD }}
+      CLOUDINARY_CLOUD_NAME:    ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY:       ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET:    ${{ secrets.CLOUDINARY_API_SECRET }}
 
     steps:
       - uses: actions/checkout@v4
