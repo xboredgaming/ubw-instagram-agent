@@ -1,0 +1,114 @@
+name: UBW Instagram Agent
+
+on:
+  schedule:
+    - cron: '0 15 * * 1-6'   # Slot 1 — 10:00 AM Lima (UTC-5)
+    - cron: '30 16 * * 1-6'  # Slot 2 — 11:30 AM Lima
+    - cron: '0 18 * * 1-6'   # Slot 3 —  1:00 PM Lima
+    - cron: '30 19 * * 1-6'  # Slot 4 —  2:30 PM Lima
+    - cron: '0 23 * * 1-6'   # Slot 5 —  6:00 PM Lima
+    - cron: '30 0 * * 2-7'   # Slot 6 —  7:30 PM Lima (UTC midnight +)
+    - cron: '0 1 * * 2-7'    # Summary — 8:00 PM Lima (UTC midnight +)
+
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Slot to post (1–6). Leave blank to infer from Lima time.'
+        required: false
+        type: string
+      dry_run:
+        description: 'Generate content but skip the actual Instagram post'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: America/Lima
+      ANTHROPIC_API_KEY:        ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+      INSTAGRAM_ACCESS_TOKEN:   ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_ACCOUNT_ID:     ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+      IMGBB_API_KEY:            ${{ secrets.IMGBB_API_KEY }}
+      GMAIL_SENDER:             ${{ secrets.GMAIL_SENDER }}
+      GMAIL_APP_PASSWORD:       ${{ secrets.GMAIL_APP_PASSWORD }}
+      OPENAI_IMAGE_COST_USD:    ${{ secrets.OPENAI_IMAGE_COST_USD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Determine slot and Lima date
+        id: ctx
+        run: |
+          H=$(date +%H)
+          LIMA_DATE=$(date +%Y-%m-%d)
+          SLOT=""
+          IS_SUMMARY="false"
+
+          case "$H" in
+            10) SLOT=1 ;;
+            11) SLOT=2 ;;
+            13) SLOT=3 ;;
+            14) SLOT=4 ;;
+            18) SLOT=5 ;;
+            19) SLOT=6 ;;
+            20) IS_SUMMARY="true" ;;
+          esac
+
+          # workflow_dispatch: use provided slot if given
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.slot }}" ]; then
+            SLOT="${{ inputs.slot }}"
+            IS_SUMMARY="false"
+          fi
+
+          echo "slot=$SLOT"             >> $GITHUB_OUTPUT
+          echo "is_summary=$IS_SUMMARY" >> $GITHUB_OUTPUT
+          echo "lima_date=$LIMA_DATE"   >> $GITHUB_OUTPUT
+          echo "Lima time: $(date +%H:%M) | slot=$SLOT | summary=$IS_SUMMARY"
+
+      # Restore today's accumulated cost log so totals carry across the 6 daily runs.
+      # New cache entry per run; restore-keys picks up the latest one for today.
+      - name: Restore cost log cache
+        uses: actions/cache@v4
+        with:
+          path: .tmp/
+          key: costs-${{ steps.ctx.outputs.lima_date }}-${{ github.run_id }}
+          restore-keys: |
+            costs-${{ steps.ctx.outputs.lima_date }}-
+
+      - name: Ensure .tmp exists
+        run: mkdir -p .tmp
+
+      - name: Post slot
+        if: steps.ctx.outputs.is_summary == 'false' && steps.ctx.outputs.slot != ''
+        env:
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          CMD="python tools/run_daily_posts.py --slot ${{ steps.ctx.outputs.slot }}"
+          if [ "$DRY_RUN" = "true" ]; then CMD="$CMD --dry-run"; fi
+          echo "Running: $CMD"
+          $CMD
+
+      - name: Send daily summary
+        if: steps.ctx.outputs.is_summary == 'true'
+        run: python tools/send_daily_summary.py
+
+      - name: No task matched (check cron or provide a slot)
+        if: steps.ctx.outputs.is_summary == 'false' && steps.ctx.outputs.slot == ''
+        run: |
+          echo "No slot matched Lima time $(date +%H:%M) and no slot input was provided."
+          echo "When triggering manually, always specify a slot (1–6)."
+          exit 1

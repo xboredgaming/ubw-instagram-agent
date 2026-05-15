@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UBW Instagram Agent — Architecture Map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { padding: 20px 32px; border-bottom: 1px solid #1e2533; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; color: #f8fafc; }
+  header span { font-size: 13px; color: #64748b; }
+
+  .layout { display: flex; height: calc(100vh - 61px); }
+
+  /* ── Diagram canvas ── */
+  #canvas-wrap { flex: 1; overflow: auto; position: relative; background: #0f1117; }
+  svg#diagram { display: block; }
+
+  /* ── Detail panel ── */
+  #panel { width: 320px; min-width: 320px; border-left: 1px solid #1e2533; background: #141922; overflow-y: auto; transition: width 0.2s; }
+  #panel.hidden { width: 0; min-width: 0; overflow: hidden; border: none; }
+  #panel-inner { padding: 24px 20px; }
+  #panel h2 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  #panel .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px; margin-bottom: 14px; font-weight: 500; }
+  #panel p { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 12px; }
+  #panel ul { font-size: 13px; color: #94a3b8; padding-left: 16px; line-height: 1.8; }
+  #panel .close-btn { float: right; background: none; border: none; color: #64748b; cursor: pointer; font-size: 18px; line-height: 1; }
+  #panel .close-btn:hover { color: #e2e8f0; }
+  #panel .file-badge { display: block; font-size: 12px; font-family: 'Consolas', monospace; background: #0f1117; border: 1px solid #1e2533; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; color: #7dd3fc; }
+  #panel .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin: 16px 0 6px; }
+
+  /* ── Schedule table ── */
+  #schedule { padding: 20px 32px; border-top: 1px solid #1e2533; background: #141922; }
+  #schedule h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; max-width: 640px; }
+  th { text-align: left; padding: 6px 14px; color: #64748b; font-weight: 500; border-bottom: 1px solid #1e2533; }
+  td { padding: 7px 14px; border-bottom: 1px solid #1a2030; }
+  tr:last-child td { border-bottom: none; }
+  .game-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+
+  /* colour palette */
+  .c-trigger  { fill: #1e3a5f; stroke: #3b82f6; }
+  .c-config   { fill: #1a2e1a; stroke: #22c55e; }
+  .c-orch     { fill: #2d1f4a; stroke: #a855f7; }
+  .c-tool     { fill: #1f2a3a; stroke: #38bdf8; }
+  .c-api      { fill: #2a1f1f; stroke: #f97316; }
+  .c-store    { fill: #1f2822; stroke: #34d399; }
+  .c-monitor  { fill: #2a1f2a; stroke: #e879f9; }
+
+  .node { cursor: pointer; transition: opacity 0.15s; }
+  .node:hover rect, .node:hover ellipse, .node:hover polygon { filter: brightness(1.25); }
+  .node.selected rect, .node.selected ellipse, .node.selected polygon { stroke-width: 2.5 !important; }
+
+  .node-label { font-size: 12px; fill: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+  .node-sub   { font-size: 10px; fill: #94a3b8; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+  .section-label { font-size: 11px; fill: #475569; font-family: 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .edge { fill: none; stroke: #2d3748; stroke-width: 1.5; marker-end: url(#arrow); }
+  .edge-label { font-size: 10px; fill: #64748b; font-family: 'Segoe UI', sans-serif; }
+
+  /* tag colours matching node classes */
+  .tag-trigger { background: #1e3a5f; color: #93c5fd; }
+  .tag-config  { background: #1a2e1a; color: #86efac; }
+  .tag-orch    { background: #2d1f4a; color: #d8b4fe; }
+  .tag-tool    { background: #1f2a3a; color: #7dd3fc; }
+  .tag-api     { background: #2a1f1f; color: #fdba74; }
+  .tag-store   { background: #1f2822; color: #6ee7b7; }
+  .tag-monitor { background: #2a1f2a; color: #f0abfc; }
+
+  .game-dmt  { background: #1c2d3f; color: #60a5fa; }
+  .game-ak   { background: #1e2a1e; color: #4ade80; }
+  .game-tbto { background: #2a1f3a; color: #c084fc; }
+  .game-hns  { background: #2a2010; color: #fb923c; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>UBW Instagram Agent</h1>
+  <span>Architecture Map — click any node for details</span>
+</header>
+
+<div class="layout">
+<div id="canvas-wrap">
+<svg id="diagram" width="1100" height="820" viewBox="0 0 1100 820">
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L8,3 z" fill="#4b5563"/>
+  </marker>
+</defs>
+
+<!-- ═══════════════════ SECTION LABELS ═══════════════════ -->
+<text x="30" y="28" class="section-label">TRIGGER</text>
+<text x="30" y="155" class="section-label">CONFIG / DATA</text>
+<text x="30" y="290" class="section-label">ORCHESTRATOR</text>
+<text x="30" y="420" class="section-label">PIPELINE TOOLS</text>
+<text x="30" y="580" class="section-label">EXTERNAL APIS</text>
+<text x="30" y="710" class="section-label">MONITORING</text>
+
+<!-- ═══════════════════ EDGES (drawn first, below nodes) ═══════════════════ -->
+
+<!-- Scheduler → Orchestrator -->
+<line class="edge" x1="200" y1="95" x2="200" y2="305"/>
+<!-- Scheduler → Summary -->
+<path class="edge" d="M 330 75 Q 950 75 950 705" stroke="#2d3748"/>
+
+<!-- Config → Orchestrator -->
+<line class="edge" x1="370" y1="205" x2="310" y2="305"/>
+<!-- Context doc → Orchestrator (via generate_content) -->
+<line class="edge" x1="560" y1="205" x2="450" y2="305"/>
+<!-- .env → Orchestrator -->
+<line class="edge" x1="730" y1="200" x2="430" y2="305"/>
+
+<!-- Orchestrator → tools -->
+<line class="edge" x1="220" y1="358" x2="200" y2="435"/>
+<line class="edge" x1="260" y1="358" x2="400" y2="435"/>
+<line class="edge" x1="290" y1="358" x2="590" y2="435"/>
+<line class="edge" x1="310" y1="358" x2="780" y2="435"/>
+
+<!-- Tools chain (horizontal) -->
+<line class="edge" x1="280" y1="470" x2="340" y2="470"/>
+<line class="edge" x1="500" y1="470" x2="540" y2="470"/>
+<line class="edge" x1="700" y1="470" x2="740" y2="470"/>
+<line class="edge" x1="870" y1="470" x2="930" y2="470"/>
+
+<!-- generate_content → Claude API -->
+<line class="edge" x1="200" y1="500" x2="200" y2="600"/>
+<!-- generate_image → OpenAI API -->
+<line class="edge" x1="420" y1="500" x2="420" y2="600"/>
+<!-- upload_image → imgbb -->
+<line class="edge" x1="620" y1="500" x2="620" y2="600"/>
+<!-- post_instagram → Meta Graph -->
+<line class="edge" x1="810" y1="500" x2="810" y2="600"/>
+
+<!-- Orchestrator → cost log -->
+<path class="edge" d="M 380 340 Q 980 340 980 440" stroke="#2d3748"/>
+<!-- cost log → daily summary -->
+<line class="edge" x1="980" y1="500" x2="980" y2="680"/>
+<!-- daily summary → send_alert -->
+<line class="edge" x1="940" y1="730" x2="860" y2="730"/>
+<!-- send_alert → Gmail -->
+<line class="edge" x1="760" y1="760" x2="760" y2="790"/>
+<text class="edge-label" x="770" y="778">SMTP SSL 465</text>
+
+<!-- billing alert path -->
+<path class="edge" d="M 310 360 Q 760 390 760 700" stroke="#f97316" stroke-opacity="0.4" stroke-dasharray="4 3"/>
+
+<!-- ═══════════════════ NODES ═══════════════════ -->
+
+<!-- ── TRIGGER: Task Scheduler ── -->
+<g class="node" id="n-scheduler" onclick="showPanel('scheduler')">
+  <rect x="60" y="40" width="200" height="55" rx="8" class="c-trigger" stroke-width="1.5"/>
+  <text x="160" y="63" class="node-label" font-weight="600">Windows Task Scheduler</text>
+  <text x="160" y="80" class="node-sub">7 tasks • Mon–Sat</text>
+</g>
+
+<g class="node" id="n-slot1" onclick="showPanel('slots')">
+  <rect x="270" y="48" width="90" height="30" rx="5" class="c-trigger" stroke-width="1"/>
+  <text x="315" y="64" class="node-label" font-size="10">Slot 1–6</text>
+</g>
+
+<!-- ── CONFIG ── -->
+<g class="node" id="n-games-config" onclick="showPanel('games-config')">
+  <rect x="290" y="163" width="160" height="52" rx="8" class="c-config" stroke-width="1.5"/>
+  <text x="370" y="184" class="node-label">games_config.json</text>
+  <text x="370" y="201" class="node-sub">4 games • 6-slot rotation</text>
+</g>
+
+<g class="node" id="n-context" onclick="showPanel('context')">
+  <rect x="470" y="163" width="175" height="52" rx="8" class="c-config" stroke-width="1.5"/>
+  <text x="558" y="184" class="node-label">ubw_social_media</text>
+  <text x="558" y="199" class="node-label">_agent_context.md</text>
+  <text x="558" y="212" class="node-sub">Brand bible</text>
+</g>
+
+<g class="node" id="n-env" onclick="showPanel('env')">
+  <rect x="660" y="163" width="100" height="52" rx="8" class="c-config" stroke-width="1.5"/>
+  <text x="710" y="184" class="node-label">.env</text>
+  <text x="710" y="199" class="node-sub">API keys</text>
+  <text x="710" y="212" class="node-sub">credentials</text>
+</g>
+
+<!-- ── ORCHESTRATOR ── -->
+<g class="node" id="n-orch" onclick="showPanel('orch')">
+  <rect x="80" y="305" width="310" height="55" rx="8" class="c-orch" stroke-width="1.5"/>
+  <text x="235" y="327" class="node-label" font-weight="600">run_daily_posts.py</text>
+  <text x="235" y="345" class="node-sub">Selects game from rotation • tracks costs • handles errors</text>
+</g>
+
+<!-- ── TOOLS ── -->
+<g class="node" id="n-gen-content" onclick="showPanel('gen-content')">
+  <rect x="80" y="435" width="200" height="55" rx="8" class="c-tool" stroke-width="1.5"/>
+  <text x="180" y="457" class="node-label">generate_content.py</text>
+  <text x="180" y="473" class="node-sub">Caption + image prompt</text>
+  <text x="180" y="487" class="node-sub">Token-optimised context</text>
+</g>
+
+<g class="node" id="n-gen-image" onclick="showPanel('gen-image')">
+  <rect x="340" y="435" width="200" height="55" rx="8" class="c-tool" stroke-width="1.5"/>
+  <text x="440" y="457" class="node-label">generate_image.py</text>
+  <text x="440" y="473" class="node-sub">1024×1024 PNG</text>
+  <text x="440" y="487" class="node-sub">base64 → local file</text>
+</g>
+
+<g class="node" id="n-upload" onclick="showPanel('upload')">
+  <rect x="540" y="435" width="200" height="55" rx="8" class="c-tool" stroke-width="1.5"/>
+  <text x="640" y="457" class="node-label">upload_image.py</text>
+  <text x="640" y="473" class="node-sub">imgbb public URL</text>
+  <text x="640" y="487" class="node-sub">24h expiry</text>
+</g>
+
+<g class="node" id="n-post" onclick="showPanel('post')">
+  <rect x="740" y="435" width="200" height="55" rx="8" class="c-tool" stroke-width="1.5"/>
+  <text x="840" y="457" class="node-label">post_instagram.py</text>
+  <text x="840" y="473" class="node-sub">Container → Publish</text>
+  <text x="840" y="487" class="node-sub">Meta Graph API v21</text>
+</g>
+
+<!-- ── COST STORE ── -->
+<g class="node" id="n-cost-log" onclick="showPanel('cost-log')">
+  <rect x="940" y="435" width="130" height="55" rx="8" class="c-store" stroke-width="1.5"/>
+  <text x="1005" y="457" class="node-label">costs_DATE</text>
+  <text x="1005" y="471" class="node-label">.json</text>
+  <text x="1005" y="485" class="node-sub">.tmp/ folder</text>
+</g>
+
+<!-- ── EXTERNAL APIS ── -->
+<g class="node" id="n-claude-api" onclick="showPanel('claude-api')">
+  <rect x="80" y="600" width="200" height="55" rx="8" class="c-api" stroke-width="1.5"/>
+  <text x="180" y="622" class="node-label" font-weight="600">Anthropic Claude API</text>
+  <text x="180" y="638" class="node-sub">claude-sonnet-4-6</text>
+  <text x="180" y="652" class="node-sub">$3 / $15 per M tokens</text>
+</g>
+
+<g class="node" id="n-openai-api" onclick="showPanel('openai-api')">
+  <rect x="320" y="600" width="200" height="55" rx="8" class="c-api" stroke-width="1.5"/>
+  <text x="420" y="622" class="node-label" font-weight="600">OpenAI Images API</text>
+  <text x="420" y="638" class="node-sub">gpt-image-2-2026-04-21</text>
+  <text x="420" y="652" class="node-sub">~$0.04 / image</text>
+</g>
+
+<g class="node" id="n-imgbb" onclick="showPanel('imgbb')">
+  <rect x="540" y="600" width="160" height="55" rx="8" class="c-api" stroke-width="1.5"/>
+  <text x="620" y="622" class="node-label" font-weight="600">imgbb</text>
+  <text x="620" y="638" class="node-sub">Free image hosting</text>
+  <text x="620" y="652" class="node-sub">Returns public URL</text>
+</g>
+
+<g class="node" id="n-meta-api" onclick="showPanel('meta-api')">
+  <rect x="720" y="600" width="200" height="55" rx="8" class="c-api" stroke-width="1.5"/>
+  <text x="820" y="622" class="node-label" font-weight="600">Meta Graph API</text>
+  <text x="820" y="638" class="node-sub">graph.facebook.com/v21</text>
+  <text x="820" y="652" class="node-sub">Instagram publishing</text>
+</g>
+
+<!-- ── MONITORING ── -->
+<g class="node" id="n-daily-summary" onclick="showPanel('daily-summary')">
+  <rect x="870" y="700" width="175" height="52" rx="8" class="c-monitor" stroke-width="1.5"/>
+  <text x="958" y="721" class="node-label">send_daily_summary.py</text>
+  <text x="958" y="737" class="node-sub">8:00 PM trigger</text>
+</g>
+
+<g class="node" id="n-send-alert" onclick="showPanel('send-alert')">
+  <rect x="670" y="700" width="160" height="52" rx="8" class="c-monitor" stroke-width="1.5"/>
+  <text x="750" y="721" class="node-label">send_alert.py</text>
+  <text x="750" y="737" class="node-sub">Email utility</text>
+</g>
+
+<g class="node" id="n-gmail" onclick="showPanel('gmail')">
+  <rect x="660" y="778" width="180" height="36" rx="8" class="c-monitor" stroke-width="1.5"/>
+  <text x="750" y="793" class="node-label" font-weight="600">Gmail SMTP</text>
+  <text x="750" y="808" class="node-sub">→ xboredgaming@gmail.com</text>
+</g>
+
+<!-- Edge labels -->
+<text class="edge-label" x="212" y="182">reads</text>
+<text class="edge-label" x="286" y="282">game slug + hashtags</text>
+<text class="edge-label" x="192" y="400">1. content</text>
+<text class="edge-label" x="352" y="400">2. image</text>
+<text class="edge-label" x="530" y="400">3. upload</text>
+<text class="edge-label" x="700" y="400">4. post</text>
+
+</svg>
+</div>
+
+<!-- ── Detail panel ── -->
+<div id="panel" class="hidden">
+  <div id="panel-inner">
+    <button class="close-btn" onclick="closePanel()">×</button>
+    <div id="panel-content"></div>
+  </div>
+</div>
+</div>
+
+<!-- ── Schedule ── -->
+<div id="schedule">
+  <h2>Daily Post Rotation (6 slots)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Slot</th><th>Time</th>
+        <th>Even days (Mon/Wed/Fri)</th>
+        <th>Odd days (Tue/Thu/Sat)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>10:00 AM</td><td><span class="game-pill game-dmt">Dead Man's Tide</span></td><td><span class="game-pill game-tbto">To Be the One</span></td></tr>
+      <tr><td>2</td><td>11:30 AM</td><td><span class="game-pill game-ak">Ashen Kingdom</span></td><td><span class="game-pill game-hns">High Noon Saloon</span></td></tr>
+      <tr><td>3</td><td>1:00 PM</td><td><span class="game-pill game-tbto">To Be the One</span></td><td><span class="game-pill game-dmt">Dead Man's Tide</span></td></tr>
+      <tr><td>4</td><td>2:30 PM</td><td><span class="game-pill game-hns">High Noon Saloon</span></td><td><span class="game-pill game-ak">Ashen Kingdom</span></td></tr>
+      <tr><td>5</td><td>6:00 PM</td><td><span class="game-pill game-dmt">Dead Man's Tide</span></td><td><span class="game-pill game-tbto">To Be the One</span></td></tr>
+      <tr><td>6</td><td>7:30 PM</td><td><span class="game-pill game-ak">Ashen Kingdom</span></td><td><span class="game-pill game-hns">High Noon Saloon</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const PANELS = {
+  scheduler: {
+    title: "Windows Task Scheduler",
+    tag: "Trigger", tagClass: "tag-trigger",
+    file: "tools/setup_scheduler.py",
+    desc: "7 scheduled tasks run Mon–Sat automatically. Six tasks fire one post slot each; the seventh sends the daily summary email at 8 PM.",
+    details: [
+      "UBW_Instagram_Slot1 → 10:00 AM",
+      "UBW_Instagram_Slot2 → 11:30 AM",
+      "UBW_Instagram_Slot3 → 1:00 PM",
+      "UBW_Instagram_Slot4 → 2:30 PM",
+      "UBW_Instagram_Slot5 → 6:00 PM",
+      "UBW_Instagram_Slot6 → 7:30 PM",
+      "UBW_Instagram_Summary → 8:00 PM",
+    ],
+    note: "Re-register tasks: python tools/setup_scheduler.py"
+  },
+  slots: {
+    title: "Task Slots 1–6",
+    tag: "Trigger", tagClass: "tag-trigger",
+    file: "tools/setup_scheduler.py",
+    desc: "Each slot calls run_daily_posts.py --slot N. The orchestrator then looks up today's game using the daily_rotation table.",
+    details: [],
+  },
+  "games-config": {
+    title: "games_config.json",
+    tag: "Config", tagClass: "tag-config",
+    file: "tools/games_config.json",
+    desc: "Defines the 4 games, their hashtag sets, and the 6-slot daily rotation across two alternating patterns (even/odd day of week).",
+    details: [
+      "slug — unique identifier used for file names",
+      "name — display name passed to Claude",
+      "hashtags — merged with Claude's suggestions",
+      "daily_rotation[0] — Mon / Wed / Fri / Sat (even)",
+      "daily_rotation[1] — Tue / Thu / Sat (odd)",
+      "cta_phase — global CTA mode (currently: follow)",
+    ],
+    note: "Switching CTA phase (follow → kickstarter) is a one-field change here."
+  },
+  context: {
+    title: "ubw_social_media_agent_context.md",
+    tag: "Config", tagClass: "tag-config",
+    file: "ubw_social_media_agent_context.md",
+    desc: "The brand bible. Contains master brand voice, per-game tone, post angles, visual aesthetics, and agent instructions. Loaded at runtime — only relevant sections are sent to Claude to minimise tokens.",
+    details: [
+      "Section 1: Master brand identity + voice",
+      "Section per game: tone, angles, visual style",
+      "Section: Agent instructions + CTA rules",
+      "~15,800 chars total; ~2,500 tokens per call (filtered)",
+    ],
+    note: "Full doc: 4,000+ tokens. Filtered: ~2,500 tokens — 37% savings."
+  },
+  env: {
+    title: ".env",
+    tag: "Config", tagClass: "tag-config",
+    file: ".env",
+    desc: "All API keys and credentials. Loaded by python-dotenv at startup of every tool. Never committed to git.",
+    details: [
+      "ANTHROPIC_API_KEY",
+      "OPENAI_API_KEY",
+      "INSTAGRAM_ACCESS_TOKEN",
+      "INSTAGRAM_ACCOUNT_ID",
+      "IMGBB_API_KEY",
+      "GMAIL_SENDER + GMAIL_APP_PASSWORD",
+      "OPENAI_IMAGE_COST_USD (for cost tracking)",
+    ],
+  },
+  orch: {
+    title: "run_daily_posts.py",
+    tag: "Orchestrator", tagClass: "tag-orch",
+    file: "tools/run_daily_posts.py",
+    desc: "The central coordinator. Reads the rotation, picks today's game for the given slot, runs the 4-step pipeline, logs costs, and handles billing errors by sending alerts.",
+    details: [
+      "1. Load games_config.json",
+      "2. Determine pattern (day_of_week % 2)",
+      "3. Pick game slug for this slot",
+      "4. generate_content → generate_image → upload_image → post_instagram",
+      "5. Record per-post cost to .tmp/costs_DATE.json",
+      "6. On billing error → send_billing_alert() then re-raise",
+    ],
+    note: "Also supports --session morning/midday/evening for manual runs."
+  },
+  "gen-content": {
+    title: "generate_content.py",
+    tag: "Tool", tagClass: "tag-tool",
+    file: "tools/generate_content.py",
+    desc: "Calls Claude API to write the Instagram caption and generate the image prompt. Loads only the relevant brand sections (master brand + target game + agent instructions) to reduce token usage.",
+    details: [
+      "Model: claude-sonnet-4-6",
+      "Input cost: $3.00 / M tokens",
+      "Output cost: $15.00 / M tokens",
+      "Returns: caption, hashtags, image_prompt, _usage",
+      "Theme: random pick (lore_snippet, gameplay_hook, cta, etc.)",
+    ],
+    note: "Typical call: ~2,500 input + ~445 output = ~$0.014"
+  },
+  "gen-image": {
+    title: "generate_image.py",
+    tag: "Tool", tagClass: "tag-tool",
+    file: "tools/generate_image.py",
+    desc: "Calls OpenAI's image API with the prompt from generate_content. Returns a 1024×1024 PNG decoded from base64 and saved to .tmp/.",
+    details: [
+      "Model: gpt-image-2-2026-04-21",
+      "Size: 1024×1024",
+      "Quality: high",
+      "Response format: b64_json",
+      "Saved to: .tmp/{slug}_{timestamp}.png",
+    ],
+    note: "~$0.04 per image at current OpenAI pricing."
+  },
+  upload: {
+    title: "upload_image.py",
+    tag: "Tool", tagClass: "tag-tool",
+    file: "tools/upload_image.py",
+    desc: "Uploads the local PNG to imgbb and returns a public HTTPS URL. Instagram's API requires a publicly accessible URL — it cannot accept a local file path or base64.",
+    details: [
+      "Endpoint: https://api.imgbb.com/1/upload",
+      "Expiry: 24 hours (86400 seconds)",
+      "Returns: data.url (direct link to image)",
+    ],
+  },
+  post: {
+    title: "post_instagram.py",
+    tag: "Tool", tagClass: "tag-tool",
+    file: "tools/post_instagram.py",
+    desc: "Publishes to Instagram via the Meta Graph API in two steps: first creates a media container, waits 5 seconds, then publishes it.",
+    details: [
+      "Step 1: POST /{account_id}/media → container ID",
+      "Step 2: POST /{account_id}/media_publish → post ID",
+      "Base URL: graph.facebook.com/v21.0 (not graph.instagram.com)",
+      "Token: Facebook-issued User Access Token",
+      "Caption includes hashtags appended after two line breaks",
+    ],
+    note: "Token must have instagram_basic + instagram_content_publish scopes."
+  },
+  "cost-log": {
+    title: "costs_DATE.json",
+    tag: "Storage", tagClass: "tag-store",
+    file: ".tmp/costs_YYYY-MM-DD.json",
+    desc: "Per-day JSON file tracking every post's token usage and dollar cost. Written by the orchestrator after each post completes. Read by send_daily_summary at 8 PM.",
+    details: [
+      "posts[]: one entry per post run",
+      "totals.claude_input_tokens",
+      "totals.claude_output_tokens",
+      "totals.claude_cost_usd",
+      "totals.openai_images + openai_image_cost_usd",
+      "totals.total_cost_usd",
+    ],
+  },
+  "claude-api": {
+    title: "Anthropic Claude API",
+    tag: "External API", tagClass: "tag-api",
+    desc: "Used for all content generation: captions, hashtag refinement, and image prompts. Token-filtered context keeps costs low.",
+    details: [
+      "Model: claude-sonnet-4-6",
+      "Input: $3.00 / M tokens",
+      "Output: $15.00 / M tokens",
+      "Endpoint: api.anthropic.com",
+      "Auth: ANTHROPIC_API_KEY",
+    ],
+  },
+  "openai-api": {
+    title: "OpenAI Images API",
+    tag: "External API", tagClass: "tag-api",
+    desc: "Generates the post artwork. Each game has a unique visual style defined in the brand context doc that Claude incorporates into the image prompt.",
+    details: [
+      "Model: gpt-image-2-2026-04-21",
+      "~$0.04 per 1024×1024 high-quality image",
+      "Response format: b64_json (not URL)",
+      "Auth: OPENAI_API_KEY",
+    ],
+  },
+  imgbb: {
+    title: "imgbb",
+    tag: "External API", tagClass: "tag-api",
+    desc: "Free image hosting service. Required because Instagram's container API needs a public HTTPS URL, not a local file.",
+    details: [
+      "Free plan — sufficient for current volume",
+      "24-hour expiry (images not meant for permanent storage)",
+      "Auth: IMGBB_API_KEY",
+    ],
+  },
+  "meta-api": {
+    title: "Meta Graph API",
+    tag: "External API", tagClass: "tag-api",
+    desc: "Instagram's publishing API. Uses a two-step process: create a media container, then publish it. Requires a Facebook-issued User Access Token (not Instagram Basic Display API).",
+    details: [
+      "Base: https://graph.facebook.com/v21.0",
+      "Account ID: 17841422950056246",
+      "Scopes needed: instagram_basic, instagram_content_publish",
+      "Token: short-lived (60 days), must be renewed via Graph API Explorer",
+    ],
+    note: "Token expires in ~60 days. Renew at: developers.facebook.com → Graph API Explorer"
+  },
+  "daily-summary": {
+    title: "send_daily_summary.py",
+    tag: "Monitor", tagClass: "tag-monitor",
+    file: "tools/send_daily_summary.py",
+    desc: "Thin wrapper triggered at 8 PM by Task Scheduler. Reads today's cost log and calls send_daily_summary() to format and send the email.",
+    details: [
+      "Reads: .tmp/costs_{today}.json",
+      "Calls: send_alert.send_daily_summary()",
+      "Subject: 'UBW Instagram — Daily Summary {date} | ${total} spent'",
+    ],
+  },
+  "send-alert": {
+    title: "send_alert.py",
+    tag: "Monitor", tagClass: "tag-monitor",
+    file: "tools/send_alert.py",
+    desc: "Email utility with two functions: (1) immediate billing alerts when an API credit limit is hit, (2) end-of-day summary with per-post cost breakdown.",
+    details: [
+      "send_billing_alert(service, error) — fires immediately on API error",
+      "send_daily_summary(log_path) — formats cost table, sends to recipient",
+      "Recipient: xboredgaming@gmail.com",
+      "Strips spaces from GMAIL_APP_PASSWORD automatically",
+    ],
+    note: "Test email: python tools/send_alert.py --test"
+  },
+  gmail: {
+    title: "Gmail SMTP",
+    tag: "Monitor", tagClass: "tag-monitor",
+    desc: "Email delivery via Gmail App Password. Uses SMTP_SSL on port 465. App passwords are 16-char codes (spaces stripped before use).",
+    details: [
+      "smtp.gmail.com:465 (SMTP_SSL)",
+      "Sender: ruiz10.rr@gmail.com",
+      "Recipient: xboredgaming@gmail.com",
+      "Auth: 16-char App Password (GMAIL_APP_PASSWORD)",
+    ],
+    note: "Generate/manage App Passwords: myaccount.google.com/apppasswords"
+  },
+};
+
+function showPanel(id) {
+  const data = PANELS[id];
+  if (!data) return;
+
+  // Deselect all
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  // Select clicked
+  const nodeEl = document.getElementById('n-' + id);
+  if (nodeEl) nodeEl.classList.add('selected');
+
+  let html = `<h2>${data.title}</h2>`;
+  html += `<span class="tag ${data.tagClass}">${data.tag}</span>`;
+  if (data.file) html += `<span class="file-badge">${data.file}</span>`;
+  html += `<p>${data.desc}</p>`;
+
+  if (data.details && data.details.length) {
+    html += `<div class="section-title">Details</div><ul>`;
+    data.details.forEach(d => html += `<li>${d}</li>`);
+    html += `</ul>`;
+  }
+  if (data.note) {
+    html += `<div class="section-title">Note</div><p style="color:#fbbf24;">${data.note}</p>`;
+  }
+
+  document.getElementById('panel-content').innerHTML = html;
+  document.getElementById('panel').classList.remove('hidden');
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.add('hidden');
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+}
+</script>
+</body>
+</html>

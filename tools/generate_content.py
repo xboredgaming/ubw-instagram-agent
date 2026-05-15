@@ -1,0 +1,140 @@
+"""
+Generates Instagram caption and image prompt for a given game using Claude.
+Only loads the relevant brand sections to minimise token usage.
+
+Usage:
+    python tools/generate_content.py --game dead-mans-tide
+    python tools/generate_content.py --game ashen-kingdom --theme lore_snippet
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+from datetime import date
+from pathlib import Path
+
+import anthropic
+from dotenv import load_dotenv
+
+load_dotenv()
+
+THEMES = ["art_reveal", "mechanic_spotlight", "lore_snippet", "kickstarter_countdown"]
+
+CTA_PHASES = {
+    "follow": "Follow @unlimitedboardworks for daily updates.",
+    "newsletter": "Sign up for early access — link in bio.",
+    "kickstarter": "We're LIVE on Kickstarter — link in bio. Back us today!",
+}
+
+# claude-sonnet-4-6 pricing (USD per token)
+CLAUDE_INPUT_COST_PER_TOKEN  = 3.00  / 1_000_000
+CLAUDE_OUTPUT_COST_PER_TOKEN = 15.00 / 1_000_000
+
+
+def load_brand_context_for_game(game_name: str) -> str:
+    """Load only Section 1 (brand) + the game-specific section + agent instructions.
+    Reduces token usage by ~70% vs. sending the full document every call."""
+    context_path = Path(__file__).parent.parent / "ubw_social_media_agent_context.md"
+    full_text = context_path.read_text(encoding="utf-8")
+
+    # Split into blocks at each top-level ## header
+    blocks = re.split(r'\n(?=## )', full_text)
+
+    brand_block  = next((b for b in blocks if "SECTION 1" in b or "MASTER BRAND" in b), "")
+    game_block   = next((b for b in blocks if game_name.upper() in b.upper()), "")
+    agent_block  = next((b for b in blocks if "AGENT INSTRUCTIONS" in b), "")
+
+    return "\n\n".join(filter(None, [brand_block, game_block, agent_block]))
+
+
+def load_game(slug: str) -> dict:
+    config_path = Path(__file__).parent / "games_config.json"
+    with open(config_path) as f:
+        config = json.load(f)
+    for game in config["games"]:
+        if game["slug"] == slug:
+            game["cta_phase"] = config.get("cta_phase", "follow")
+            return game
+    raise ValueError(f"Game '{slug}' not found in games_config.json")
+
+
+def pick_theme() -> str:
+    return THEMES[date.today().toordinal() % len(THEMES)]
+
+
+def generate_content(game: dict, theme: str, session: str) -> dict:
+    """Returns the content dict with an extra '_usage' key for cost tracking."""
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    brand_context = load_brand_context_for_game(game["name"])
+    cta_text = CTA_PHASES.get(game["cta_phase"], CTA_PHASES["follow"])
+
+    system_prompt = (
+        "You are the social media agent for Unlimited Board Works (@unlimitedboardworks).\n\n"
+        "The following is your brand and game context. Every post must be grounded in this document "
+        "— tone, mechanics terminology, and post angles are requirements, not suggestions.\n\n"
+        + brand_context
+    )
+
+    user_prompt = (
+        f"Generate an Instagram static feed post for: {game['name']}\n\n"
+        f"Post theme: {theme.replace('_', ' ').title()}\n"
+        f"Session: {session} post\n"
+        f"CTA: {cta_text}\n"
+        f"Hashtags to include (add more if relevant): {json.dumps(game['hashtags'])}\n\n"
+        "Rules:\n"
+        "- Apply this game's exact social media tone and post angles from the context above\n"
+        "- First line: scroll-stopping hook (question, bold statement, or intriguing fragment)\n"
+        "- Body: 2–4 short punchy paragraphs, no walls of text\n"
+        "- No hashtags in the caption — return them separately\n"
+        "- Image prompt: highly specific composition, lighting, color palette, mood. "
+        "Square 1:1 format. No text in the image.\n\n"
+        "Return ONLY valid JSON:\n"
+        '{"caption": "...", "hashtags": ["#tag1"], "image_prompt": "..."}'
+    )
+
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+
+    raw = message.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    result = json.loads(raw.strip())
+
+    result["_usage"] = {
+        "input_tokens":  message.usage.input_tokens,
+        "output_tokens": message.usage.output_tokens,
+        "cost_usd": (
+            message.usage.input_tokens  * CLAUDE_INPUT_COST_PER_TOKEN +
+            message.usage.output_tokens * CLAUDE_OUTPUT_COST_PER_TOKEN
+        ),
+    }
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--game",    required=True, help="Game slug from games_config.json")
+    parser.add_argument("--theme",   choices=THEMES, help="Post theme (default: auto-rotates daily)")
+    parser.add_argument("--session", choices=["morning", "midday", "evening"], default="morning")
+    args = parser.parse_args()
+
+    theme  = args.theme or pick_theme()
+    game   = load_game(args.game)
+    result = generate_content(game, theme, args.session)
+
+    usage = result.pop("_usage", {})
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print(f"\n[tokens] in={usage.get('input_tokens')} out={usage.get('output_tokens')} "
+          f"cost=${usage.get('cost_usd', 0):.5f}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

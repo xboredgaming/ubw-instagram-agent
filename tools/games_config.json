@@ -1,0 +1,51 @@
+{
+  "context_file": "ubw_social_media_agent_context.md",
+  "cta_phase": "follow",
+  "post_times": ["10:00", "11:30", "13:00", "14:30", "18:00", "19:30"],
+  "daily_rotation": [
+    ["dead-mans-tide", "ashen-kingdom", "to-be-the-one", "high-noon-saloon", "dead-mans-tide", "ashen-kingdom"],
+    ["to-be-the-one", "high-noon-saloon", "dead-mans-tide", "ashen-kingdom", "to-be-the-one", "high-noon-saloon"]
+  ],
+  "games": [
+    {
+      "slug": "dead-mans-tide",
+      "name": "Dead Man's Tide",
+      "session": "morning",
+      "hashtags": [
+        "#boardgames", "#kickstarter", "#tabletopgames", "#indiegames", "#boardgamegeek",
+        "#UnlimitedBoardWorks", "#DeadMansTide", "#pirategames", "#semicooperative",
+        "#cardgame", "#boardgamenight", "#gamenight"
+      ]
+    },
+    {
+      "slug": "ashen-kingdom",
+      "name": "Ashen Kingdom",
+      "session": "morning",
+      "hashtags": [
+        "#boardgames", "#kickstarter", "#tabletopgames", "#indiegames", "#boardgamegeek",
+        "#UnlimitedBoardWorks", "#AshenKingdom", "#darkfantasy", "#fantasygames",
+        "#racegame", "#boardgamenight", "#gamenight"
+      ]
+    },
+    {
+      "slug": "to-be-the-one",
+      "name": "To Be the One",
+      "session": "evening",
+      "hashtags": [
+        "#boardgames", "#kickstarter", "#tabletopgames", "#indiegames", "#boardgamegeek",
+        "#UnlimitedBoardWorks", "#ToBeTheOne", "#cosmicgames", "#shareddeckgame",
+        "#cardgame", "#boardgamenight", "#gamenight"
+      ]
+    },
+    {
+      "slug": "high-noon-saloon",
+      "name": "High Noon Saloon",
+      "session": "evening",
+      "hashtags": [
+        "#boardgames", "#kickstarter", "#tabletopgames", "#indiegames", "#boardgamegeek",
+        "#UnlimitedBoardWorks", "#HighNoonSaloon", "#wildwest", "#bluffgame",
+        "#partygame", "#cardgame", "#gamenight"
+      ]
+    }
+  ]
+}
