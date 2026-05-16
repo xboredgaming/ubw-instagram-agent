@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -31,6 +32,8 @@ CTA_PHASES = {
 # claude-sonnet-4-6 pricing (USD per token)
 CLAUDE_INPUT_COST_PER_TOKEN  = 3.00  / 1_000_000
 CLAUDE_OUTPUT_COST_PER_TOKEN = 15.00 / 1_000_000
+
+MAX_RETRIES = 3
 
 
 def load_brand_context_for_game(game_name: str) -> str:
@@ -77,46 +80,59 @@ def generate_content(game: dict, theme: str, session: str) -> dict:
         + brand_context
     )
 
+    day_seed = date.today().toordinal()
+
     user_prompt = (
-        f"Generate an Instagram static feed post for: {game['name']}\n\n"
+        f"Generate an Instagram Reel caption for: {game['name']}\n\n"
         f"Post theme: {theme.replace('_', ' ').title()}\n"
-        f"Session: {session} post\n"
         f"CTA: {cta_text}\n"
-        f"Hashtags to include (add more if relevant): {json.dumps(game['hashtags'])}\n\n"
+        f"Day seed: {day_seed} — make this feel distinct from prior posts on this theme.\n"
+        f"Hashtags (use these exactly, do not add or remove): {json.dumps(game['hashtags'])}\n\n"
         "Rules:\n"
         "- Apply this game's exact social media tone and post angles from the context above\n"
-        "- First line: scroll-stopping hook (question, bold statement, or intriguing fragment)\n"
-        "- Body: 2–4 short punchy paragraphs, no walls of text\n"
-        "- No hashtags in the caption — return them separately\n"
+        "- Hook (first line): scroll-stopping question, bold statement, or intriguing fragment — under 100 characters\n"
+        "- Body: 2–3 short punchy sentences, no walls of text\n"
+        "- Total caption length: 150–280 characters (not counting hashtags)\n"
+        "- Use 1–3 relevant emojis naturally in the caption — not as bullet points\n"
+        "- No hashtags inside the caption text — return them in the JSON hashtags field only\n"
         "- Image prompt: highly specific composition, lighting, color palette, mood. "
-        "Square 1:1 format. No text in the image.\n\n"
+        "Square 1:1 format. No text, no faces.\n\n"
         "Return ONLY valid JSON:\n"
         '{"caption": "...", "hashtags": ["#tag1"], "image_prompt": "..."}'
     )
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
+    last_err = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            message = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            raw = message.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            result = json.loads(raw.strip())
+            result["_usage"] = {
+                "input_tokens":  message.usage.input_tokens,
+                "output_tokens": message.usage.output_tokens,
+                "cost_usd": (
+                    message.usage.input_tokens  * CLAUDE_INPUT_COST_PER_TOKEN +
+                    message.usage.output_tokens * CLAUDE_OUTPUT_COST_PER_TOKEN
+                ),
+            }
+            return result
+        except json.JSONDecodeError as e:
+            last_err = e
+            print(f"[generate_content] Attempt {attempt}/{MAX_RETRIES}: JSON parse failed — retrying...",
+                  file=sys.stderr)
+            if attempt < MAX_RETRIES:
+                time.sleep(2)
 
-    raw = message.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    result = json.loads(raw.strip())
-
-    result["_usage"] = {
-        "input_tokens":  message.usage.input_tokens,
-        "output_tokens": message.usage.output_tokens,
-        "cost_usd": (
-            message.usage.input_tokens  * CLAUDE_INPUT_COST_PER_TOKEN +
-            message.usage.output_tokens * CLAUDE_OUTPUT_COST_PER_TOKEN
-        ),
-    }
-    return result
+    raise RuntimeError(f"Claude returned invalid JSON after {MAX_RETRIES} attempts") from last_err
 
 
 def main():

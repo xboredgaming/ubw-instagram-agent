@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -38,6 +39,29 @@ TMP_DIR = Path(__file__).parent.parent / ".tmp"
 TMP_DIR.mkdir(exist_ok=True)
 
 OPENAI_IMAGE_COST_USD = float(os.getenv("OPENAI_IMAGE_COST_USD", "0.04"))
+
+MAX_POST_RETRIES  = 3
+POST_RETRY_DELAY  = 10  # seconds between Instagram post retries
+
+
+def _post_reel_with_retry(video_url: str, caption: str, hashtags: list, dry_run: bool, slug: str) -> str:
+    last_err = None
+    for attempt in range(1, MAX_POST_RETRIES + 1):
+        try:
+            return post_reel_to_instagram(
+                video_url=video_url,
+                caption=caption,
+                hashtags=hashtags,
+                dry_run=dry_run,
+            )
+        except RuntimeError as e:
+            last_err = e
+            print(f"[{slug}] Instagram post attempt {attempt}/{MAX_POST_RETRIES} failed: {e}",
+                  file=sys.stderr)
+            if attempt < MAX_POST_RETRIES:
+                print(f"[{slug}] Retrying in {POST_RETRY_DELAY}s...", file=sys.stderr)
+                time.sleep(POST_RETRY_DELAY)
+    raise last_err
 
 
 # ── Cost log helpers ─────────────────────────────────────────────────────────
@@ -141,13 +165,14 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
     else:
         video_url = upload_video(reel_path)
 
-    # Step 5: Post reel to Instagram
+    # Step 5: Post reel to Instagram (retries up to MAX_POST_RETRIES on transient failures)
     print(f"[{slug}] Posting reel to Instagram...", file=sys.stderr)
-    post_id = post_reel_to_instagram(
+    post_id = _post_reel_with_retry(
         video_url=video_url,
         caption=content["caption"],
         hashtags=content["hashtags"],
         dry_run=dry_run,
+        slug=slug,
     )
 
     entry["post_id"]       = post_id
