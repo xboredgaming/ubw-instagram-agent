@@ -81,22 +81,26 @@ def generate_content(game: dict, theme: str, session: str) -> dict:
     )
 
     day_seed = date.today().toordinal()
+    visual_world = game.get("visual_world", "")
 
     user_prompt = (
         f"Generate an Instagram Reel caption for: {game['name']}\n\n"
         f"Post theme: {theme.replace('_', ' ').title()}\n"
         f"CTA: {cta_text}\n"
         f"Day seed: {day_seed} — make this feel distinct from prior posts on this theme.\n"
-        f"Hashtags (use these exactly, do not add or remove): {json.dumps(game['hashtags'])}\n\n"
-        "Rules:\n"
+        f"Hashtags (use these exactly, do not add or remove): {json.dumps(game['hashtags'])}\n"
+        + (f"Visual world: {visual_world}\n" if visual_world else "")
+        + "\nRules:\n"
         "- Apply this game's exact social media tone and post angles from the context above\n"
         "- Hook (first line): scroll-stopping question, bold statement, or intriguing fragment — under 100 characters\n"
         "- Body: 2–3 short punchy sentences, no walls of text\n"
         "- Total caption length: 150–280 characters (not counting hashtags)\n"
         "- Use 1–3 relevant emojis naturally in the caption — not as bullet points\n"
         "- No hashtags inside the caption text — return them in the JSON hashtags field only\n"
-        "- Image prompt: highly specific composition, lighting, color palette, mood. "
-        "Square 1:1 format. No text, no faces.\n\n"
+        "- NEVER reference, describe, or mention game cards, game components, tokens, or prototype art "
+        "in the caption — the game is pre-launch and nothing is finalized. Build intrigue around the world and story.\n"
+        "- Image prompt: depict the game's Visual world described above — environments, atmosphere, "
+        "scenes, characters. NO game cards, NO components, NO prototype art. Square 1:1 format. No text, no faces.\n\n"
         "Return ONLY valid JSON:\n"
         '{"caption": "...", "hashtags": ["#tag1"], "image_prompt": "..."}'
     )
