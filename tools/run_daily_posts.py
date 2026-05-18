@@ -30,7 +30,7 @@ from generate_content import load_game, generate_content, pick_theme
 from generate_image   import generate_image
 from create_reel      import create_reel
 from upload_video     import upload_video
-from post_instagram   import post_video_to_instagram
+from post_instagram   import post_reel_to_instagram
 from send_alert       import send_billing_alert
 
 TMP_DIR = Path(__file__).parent.parent / ".tmp"
@@ -46,7 +46,7 @@ def _post_with_retry(video_url: str, caption: str, hashtags: list, dry_run: bool
     last_err = None
     for attempt in range(1, MAX_POST_RETRIES + 1):
         try:
-            return post_video_to_instagram(
+            return post_reel_to_instagram(
                 video_url=video_url,
                 caption=caption,
                 hashtags=hashtags,
