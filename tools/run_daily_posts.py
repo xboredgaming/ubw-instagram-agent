@@ -30,9 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from generate_content import load_game, generate_content, pick_theme
 from generate_image   import generate_image
 from upload_image     import upload_image
-from create_reel      import create_reel
-from upload_video     import upload_video
-from post_instagram   import post_reel_to_instagram
+from post_instagram   import post_to_instagram
 from send_alert       import send_billing_alert
 
 TMP_DIR = Path(__file__).parent.parent / ".tmp"
@@ -44,12 +42,12 @@ MAX_POST_RETRIES  = 3
 POST_RETRY_DELAY  = 10  # seconds between Instagram post retries
 
 
-def _post_reel_with_retry(video_url: str, caption: str, hashtags: list, dry_run: bool, slug: str) -> str:
+def _post_with_retry(image_url: str, caption: str, hashtags: list, dry_run: bool, slug: str) -> str:
     last_err = None
     for attempt in range(1, MAX_POST_RETRIES + 1):
         try:
-            return post_reel_to_instagram(
-                video_url=video_url,
+            return post_to_instagram(
+                image_url=image_url,
                 caption=caption,
                 hashtags=hashtags,
                 dry_run=dry_run,
@@ -149,38 +147,30 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
             _record_post(log, entry)
             raise
 
-    # Step 3: Assemble reel (image + audio → MP4)
-    print(f"[{slug}] Assembling reel...", file=sys.stderr)
+    # Step 3: Upload image to imgbb
+    print(f"[{slug}] Uploading image to imgbb...", file=sys.stderr)
     if dry_run:
-        reel_path = None
-        print(f"[{slug}] [DRY RUN] Skipping reel assembly", file=sys.stderr)
-    else:
-        reel_path = create_reel(image_path, slug)
-
-    # Step 4: Upload reel to Cloudinary
-    print(f"[{slug}] Uploading reel to Cloudinary...", file=sys.stderr)
-    if dry_run:
-        video_url = "https://example.com/dry-run-reel.mp4"
+        image_url = "https://example.com/dry-run-image.png"
         print(f"[{slug}] [DRY RUN] Skipping upload", file=sys.stderr)
     else:
-        video_url = upload_video(reel_path)
+        image_url = upload_image(image_path)
 
-    # Step 5: Post reel to Instagram (retries up to MAX_POST_RETRIES on transient failures)
-    print(f"[{slug}] Posting reel to Instagram...", file=sys.stderr)
-    post_id = _post_reel_with_retry(
-        video_url=video_url,
+    # Step 4: Post image to Instagram (retries up to MAX_POST_RETRIES on transient failures)
+    print(f"[{slug}] Posting image to Instagram...", file=sys.stderr)
+    post_id = _post_with_retry(
+        image_url=image_url,
         caption=content["caption"],
         hashtags=content["hashtags"],
         dry_run=dry_run,
         slug=slug,
     )
 
-    entry["post_id"]       = post_id
-    entry["video_url"]     = video_url
+    entry["post_id"]        = post_id
+    entry["image_url"]      = image_url
     entry["total_cost_usd"] = entry["claude_cost_usd"] + entry["openai_image_cost_usd"]
     _record_post(log, entry)
 
-    print(f"[{slug}] Done. Reel ID: {post_id} | Total cost: ${entry['total_cost_usd']:.5f}", file=sys.stderr)
+    print(f"[{slug}] Done. Post ID: {post_id} | Total cost: ${entry['total_cost_usd']:.5f}", file=sys.stderr)
     return entry
 
 
