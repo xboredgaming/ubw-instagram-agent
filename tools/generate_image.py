@@ -68,7 +68,7 @@ def generate_image(prompt: str, game_slug: str, output_path: Path = None) -> Pat
         time.sleep(POLL_INTERVAL)
 
         poll = requests.get(
-            f"{KIE_API_BASE}/jobs/queryTask",
+            f"{KIE_API_BASE}/jobs/recordInfo",
             headers=headers,
             params={"taskId": task_id},
             timeout=30,
@@ -76,7 +76,7 @@ def generate_image(prompt: str, game_slug: str, output_path: Path = None) -> Pat
         poll.raise_for_status()
         poll_json = poll.json()
         data      = poll_json.get("data") or {}
-        status    = str(data.get("status", "")).lower()
+        status    = str(data.get("state", data.get("status", ""))).lower()
 
         print(f"Image status: {status}", file=sys.stderr)
 
