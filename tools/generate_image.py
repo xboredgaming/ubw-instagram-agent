@@ -81,12 +81,15 @@ def generate_image(prompt: str, game_slug: str, output_path: Path = None) -> Pat
         print(f"Image status: {status}", file=sys.stderr)
 
         if status in ("success", "completed", "done", "finish"):
-            outputs = data.get("output") or []
-            if not outputs:
-                raise RuntimeError(f"Kie.ai returned success but no output. Response: {poll_json}")
-            image_url = outputs[0].get("url") or outputs[0].get("imageUrl")
-            if not image_url:
-                raise RuntimeError(f"Could not find image URL in output: {outputs[0]}")
+            result_json_str = data.get("resultJson")
+            if not result_json_str:
+                raise RuntimeError(f"Kie.ai returned success but no resultJson. Response: {poll_json}")
+            import json as _json
+            result = _json.loads(result_json_str)
+            urls = result.get("resultUrls") or []
+            if not urls:
+                raise RuntimeError(f"Kie.ai resultJson has no resultUrls. Parsed: {result}")
+            image_url = urls[0]
 
             img_resp = requests.get(image_url, timeout=60)
             img_resp.raise_for_status()

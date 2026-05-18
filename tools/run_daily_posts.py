@@ -141,7 +141,8 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
             entry["kie_images"]         = 1
             entry["kie_image_cost_usd"] = KIE_IMAGE_COST_USD
         except Exception as e:
-            if "billing" in str(e).lower() or "credit" in str(e).lower():
+            err_str = str(e).lower()
+            if "402" in err_str or "payment required" in err_str or "insufficient" in err_str:
                 send_billing_alert("Kie.ai", str(e))
             entry["error"] = str(e)
             _record_post(log, entry)
