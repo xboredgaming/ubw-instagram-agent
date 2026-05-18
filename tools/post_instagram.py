@@ -96,10 +96,11 @@ def post_video_to_instagram(video_url: str, caption: str, hashtags: list[str], d
         print(f"  Caption:    {full_caption[:100]}...", file=sys.stderr)
         return "dry-run-no-id"
 
-    # Step 1: Create feed video container (no media_type=REELS → goes to Posts tab)
+    # Step 1: Create feed video container
     container_resp = requests.post(
         f"{GRAPH_API_BASE}/{account_id}/media",
         data={
+            "media_type":   "VIDEO",
             "video_url":    video_url,
             "caption":      full_caption,
             "access_token": access_token,
