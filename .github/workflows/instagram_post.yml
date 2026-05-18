@@ -32,13 +32,13 @@ jobs:
     env:
       TZ: America/Lima
       ANTHROPIC_API_KEY:        ${{ secrets.ANTHROPIC_API_KEY }}
-      OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+      KIE_API_KEY:              ${{ secrets.KIE_API_KEY }}
       INSTAGRAM_ACCESS_TOKEN:   ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
       INSTAGRAM_ACCOUNT_ID:     ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
       IMGBB_API_KEY:            ${{ secrets.IMGBB_API_KEY }}
       GMAIL_SENDER:             ${{ secrets.GMAIL_SENDER }}
       GMAIL_APP_PASSWORD:       ${{ secrets.GMAIL_APP_PASSWORD }}
-      OPENAI_IMAGE_COST_USD:    ${{ secrets.OPENAI_IMAGE_COST_USD }}
+      KIE_IMAGE_COST_USD:       ${{ secrets.KIE_IMAGE_COST_USD }}
       CLOUDINARY_CLOUD_NAME:    ${{ secrets.CLOUDINARY_CLOUD_NAME }}
       CLOUDINARY_API_KEY:       ${{ secrets.CLOUDINARY_API_KEY }}
       CLOUDINARY_API_SECRET:    ${{ secrets.CLOUDINARY_API_SECRET }}

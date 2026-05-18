@@ -19,7 +19,6 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
-import openai
 import anthropic
 from dotenv import load_dotenv
 
@@ -37,7 +36,7 @@ from send_alert       import send_billing_alert
 TMP_DIR = Path(__file__).parent.parent / ".tmp"
 TMP_DIR.mkdir(exist_ok=True)
 
-OPENAI_IMAGE_COST_USD = float(os.getenv("OPENAI_IMAGE_COST_USD", "0.04"))
+KIE_IMAGE_COST_USD = float(os.getenv("KIE_IMAGE_COST_USD", "0.04"))
 
 MAX_POST_RETRIES  = 3
 POST_RETRY_DELAY  = 10  # seconds between Instagram post retries
@@ -75,7 +74,7 @@ def _load_log() -> dict:
             return json.load(f)
     return {"date": str(date.today()), "posts": [], "totals": {
         "claude_input_tokens": 0, "claude_output_tokens": 0, "claude_cost_usd": 0.0,
-        "openai_images": 0, "openai_image_cost_usd": 0.0, "total_cost_usd": 0.0,
+        "kie_images": 0, "kie_image_cost_usd": 0.0, "total_cost_usd": 0.0,
     }}
 
 def _save_log(log: dict):
@@ -88,8 +87,8 @@ def _record_post(log: dict, entry: dict):
     t["claude_input_tokens"]   += entry.get("claude_input_tokens", 0)
     t["claude_output_tokens"]  += entry.get("claude_output_tokens", 0)
     t["claude_cost_usd"]       += entry.get("claude_cost_usd", 0)
-    t["openai_images"]         += entry.get("openai_images", 0)
-    t["openai_image_cost_usd"] += entry.get("openai_image_cost_usd", 0)
+    t["kie_images"]         += entry.get("kie_images", 0)
+    t["kie_image_cost_usd"] += entry.get("kie_image_cost_usd", 0)
     t["total_cost_usd"]        += entry.get("total_cost_usd", 0)
     _save_log(log)
 
@@ -106,7 +105,7 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
         "game": slug, "slot": slot,
         "time": datetime.now().isoformat(timespec="seconds"),
         "claude_input_tokens": 0, "claude_output_tokens": 0, "claude_cost_usd": 0.0,
-        "openai_images": 0, "openai_image_cost_usd": 0.0, "total_cost_usd": 0.0,
+        "kie_images": 0, "kie_image_cost_usd": 0.0, "total_cost_usd": 0.0,
     }
 
     # Step 1: Generate content via Claude
@@ -132,18 +131,18 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
     print(f"[{slug}] Caption preview: {content['caption'][:80]}...", file=sys.stderr)
 
     # Step 2: Generate image
-    print(f"[{slug}] Generating image via OpenAI...", file=sys.stderr)
+    print(f"[{slug}] Generating image via kie.ai...", file=sys.stderr)
     if dry_run:
         image_path = TMP_DIR / f"{slug}_dry-run.png"
         print(f"[{slug}] [DRY RUN] Skipping image generation", file=sys.stderr)
     else:
         try:
             image_path = generate_image(content["image_prompt"], slug)
-            entry["openai_images"]         = 1
-            entry["openai_image_cost_usd"] = OPENAI_IMAGE_COST_USD
-        except openai.BadRequestError as e:
-            if "billing" in str(e).lower():
-                send_billing_alert("OpenAI", str(e))
+            entry["kie_images"]         = 1
+            entry["kie_image_cost_usd"] = KIE_IMAGE_COST_USD
+        except Exception as e:
+            if "billing" in str(e).lower() or "credit" in str(e).lower():
+                send_billing_alert("Kie.ai", str(e))
             entry["error"] = str(e)
             _record_post(log, entry)
             raise
@@ -176,7 +175,7 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
 
     entry["post_id"]        = post_id
     entry["video_url"]      = video_url
-    entry["total_cost_usd"] = entry["claude_cost_usd"] + entry["openai_image_cost_usd"]
+    entry["total_cost_usd"] = entry["claude_cost_usd"] + entry["kie_image_cost_usd"]
     _record_post(log, entry)
 
     print(f"[{slug}] Done. Post ID: {post_id} | Total cost: ${entry['total_cost_usd']:.5f}", file=sys.stderr)

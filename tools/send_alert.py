@@ -98,7 +98,7 @@ def send_daily_summary(cost_log_path: Path):
             f"{'Slot '+str(p.get('slot','?')):<6} "
             f"{str(p.get('claude_input_tokens',0))+'/'+str(p.get('claude_output_tokens',0)):<18} "
             f"${p.get('claude_cost_usd',0):.5f}   "
-            f"${p.get('openai_image_cost_usd',0):.4f}     "
+            f"${p.get('kie_image_cost_usd',0):.4f}     "
             f"${p.get('total_cost_usd',0):.5f}"
         )
 
@@ -108,8 +108,8 @@ def send_daily_summary(cost_log_path: Path):
         f"  Claude API : {totals.get('claude_input_tokens',0):,} input + "
             f"{totals.get('claude_output_tokens',0):,} output tokens "
             f"→ ${totals.get('claude_cost_usd',0):.5f}",
-        f"  OpenAI     : {totals.get('openai_images',0)} image(s) "
-            f"→ ${totals.get('openai_image_cost_usd',0):.4f}",
+        f"  Kie.ai     : {totals.get('kie_images',0)} image(s) "
+            f"→ ${totals.get('kie_image_cost_usd',0):.4f}",
         f"  Total today: ${totals.get('total_cost_usd',0):.5f}",
         "",
         "— UBW Instagram Agent",
