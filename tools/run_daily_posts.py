@@ -1,4 +1,4 @@
-"""
+﻿"""
 Orchestrator: generates content, image, uploads, and posts to Instagram.
 
 Slot-based (used by scheduler — one game per call):
@@ -112,7 +112,7 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
     print(f"[{slug}] Generating content via Claude...", file=sys.stderr)
     theme = pick_theme()
     try:
-        content = generate_content(game, theme, session)
+        content = generate_content(game, theme, session, slot=slot)
     except anthropic.APIStatusError as e:
         if "billing" in str(e).lower() or "credit" in str(e).lower():
             send_billing_alert("Anthropic (Claude)", str(e))
@@ -256,3 +256,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
