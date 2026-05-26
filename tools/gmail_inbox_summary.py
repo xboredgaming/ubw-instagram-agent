@@ -53,7 +53,9 @@ def get_access_token() -> str:
         },
         timeout=15,
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        print(f"[inbox-summary] Token error {resp.status_code}: {resp.text}", file=sys.stderr)
+        resp.raise_for_status()
     return resp.json()["access_token"]
 
 
