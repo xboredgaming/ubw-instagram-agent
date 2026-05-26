@@ -1,8 +1,10 @@
 """
 UBW Weekly Research Digest — board game mechanics and lore inspiration.
 
-Fetches recent posts from r/boardgamedesign, r/tabletopgamedesign, and r/boardgames
-via RSS, passes content to Claude for analysis, and emails the digest.
+Data sources (all work from cloud IPs):
+  - Hacker News Algolia API (primary — no auth needed)
+  - Reddit OAuth (optional — set REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,
+    REDDIT_USERNAME, REDDIT_PASSWORD secrets to enable richer results)
 
 Schedule: 14:00 UTC every Monday (9:00 AM Lima / PET)
 Recipients: xboredgaming@gmail.com, unlimitedboredworks@gmail.com
@@ -13,11 +15,9 @@ import os
 import re
 import smtplib
 import sys
-import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import parsedate_to_datetime
 
 import anthropic
 import requests
@@ -27,12 +27,6 @@ load_dotenv()
 
 RECIPIENTS = ["xboredgaming@gmail.com", "unlimitedboredworks@gmail.com"]
 
-REDDIT_FEEDS = [
-    ("boardgamedesign",    "https://www.reddit.com/r/boardgamedesign/hot/.rss"),
-    ("tabletopgamedesign", "https://www.reddit.com/r/tabletopgamedesign/hot/.rss"),
-    ("boardgames",         "https://www.reddit.com/r/boardgames/hot/.rss"),
-]
-
 GAMES = [
     ("To Be The One",    "cosmic/philosophical — epic tone"),
     ("Dead Man's Tide",  "pirate adventure — treachery tone"),
@@ -40,81 +34,140 @@ GAMES = [
     ("High Noon Saloon", "western — tense cunning tone"),
 ]
 
+HN_QUERIES = [
+    "board game design mechanic",
+    "tabletop game design",
+    "board game worldbuilding lore",
+    "card game asymmetry",
+    "board game player interaction",
+]
+
+REDDIT_SUBREDDITS = [
+    "boardgamedesign",
+    "tabletopgamedesign",
+    "boardgames",
+]
+
 
 # ---------------------------------------------------------------------------
-# RSS Fetching
+# Data sources
 # ---------------------------------------------------------------------------
 
-def _strip_html(text: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def fetch_reddit_feed(subreddit: str, feed_url: str, limit: int = 25) -> list[dict]:
-    """Return recent hot posts from a subreddit (last 7 days)."""
-    headers = {"User-Agent": "UBW-Research-Bot/1.0 (board game studio research)"}
+def fetch_hn(query: str, since_days: int = 7) -> list[dict]:
+    since_ts = int((datetime.now(timezone.utc) - timedelta(days=since_days)).timestamp())
     try:
-        resp = requests.get(feed_url, headers=headers, timeout=20)
+        resp = requests.get(
+            "https://hn.algolia.com/api/v1/search",
+            params={
+                "query":          query,
+                "tags":           "story",
+                "numericFilters": f"created_at_i>{since_ts}",
+                "hitsPerPage":    15,
+            },
+            timeout=15,
+        )
         resp.raise_for_status()
     except Exception as e:
-        print(f"[digest] Failed to fetch {subreddit}: {e}", file=sys.stderr)
+        print(f"[digest] HN fetch failed for '{query}': {e}", file=sys.stderr)
         return []
 
-    since = datetime.now(timezone.utc) - timedelta(days=7)
-    posts = []
+    results = []
+    for h in resp.json().get("hits", []):
+        title = h.get("title", "").strip()
+        if not title:
+            continue
+        url  = h.get("url") or f"https://news.ycombinator.com/item?id={h.get('objectID')}"
+        text = re.sub(r"\s+", " ", h.get("story_text") or "").strip()[:400]
+        results.append({"title": title, "url": url, "text": text, "source": "Hacker News"})
 
+    return results
+
+
+def fetch_reddit_oauth() -> list[dict]:
+    """Fetch Reddit posts using OAuth. Only runs if all 4 secrets are present."""
+    client_id     = os.environ.get("REDDIT_CLIENT_ID", "")
+    client_secret = os.environ.get("REDDIT_CLIENT_SECRET", "")
+    username      = os.environ.get("REDDIT_USERNAME", "")
+    password      = os.environ.get("REDDIT_PASSWORD", "")
+
+    if not all([client_id, client_secret, username, password]):
+        return []
+
+    ua = f"script:ubw-digest:1.0 (by /u/{username})"
     try:
-        root = ET.fromstring(resp.text)
-    except ET.ParseError as e:
-        print(f"[digest] XML parse error for {subreddit}: {e}", file=sys.stderr)
+        token_resp = requests.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=requests.auth.HTTPBasicAuth(client_id, client_secret),
+            data={"grant_type": "password", "username": username, "password": password},
+            headers={"User-Agent": ua},
+            timeout=15,
+        )
+        token_resp.raise_for_status()
+        token = token_resp.json()["access_token"]
+    except Exception as e:
+        print(f"[digest] Reddit OAuth failed: {e}", file=sys.stderr)
         return []
 
-    content_ns = "http://purl.org/rss/1.0/modules/content/"
+    headers = {"Authorization": f"bearer {token}", "User-Agent": ua}
+    since   = datetime.now(timezone.utc) - timedelta(days=7)
+    posts   = []
 
-    for item in root.iter("item"):
-        title   = item.findtext("title", "").strip()
-        link    = item.findtext("link", "").strip()
-        pub_str = item.findtext("pubDate", "")
-
-        # Skip if older than 7 days
+    for sub in REDDIT_SUBREDDITS:
         try:
-            pub_date = parsedate_to_datetime(pub_str)
-            if pub_date.tzinfo is None:
-                pub_date = pub_date.replace(tzinfo=timezone.utc)
-            if pub_date < since:
+            resp = requests.get(
+                f"https://oauth.reddit.com/r/{sub}/hot",
+                params={"limit": 25},
+                headers=headers,
+                timeout=15,
+            )
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"[digest] Reddit r/{sub} failed: {e}", file=sys.stderr)
+            continue
+
+        for child in resp.json()["data"]["children"]:
+            p       = child["data"]
+            created = datetime.fromtimestamp(p["created_utc"], tz=timezone.utc)
+            if created < since:
                 continue
-        except Exception:
-            pass  # Include if date is unparseable
-
-        raw = item.findtext(f"{{{content_ns}}}encoded", "") or item.findtext("description", "")
-        text = _strip_html(raw)[:600]
-
-        if title and link:
+            title = p.get("title", "").strip()
+            if not title:
+                continue
             posts.append({
-                "title":      title,
-                "url":        link,
-                "text":       text,
-                "subreddit":  subreddit,
+                "title":  title,
+                "url":    f"https://reddit.com{p.get('permalink', '')}",
+                "text":   re.sub(r"\s+", " ", p.get("selftext") or "").strip()[:500],
+                "source": f"r/{sub}",
             })
 
-        if len(posts) >= limit:
-            break
-
+    print(f"[digest] Reddit OAuth: {len(posts)} posts")
     return posts
 
 
 def gather_posts() -> list[dict]:
-    all_posts = []
-    for subreddit, url in REDDIT_FEEDS:
-        print(f"[digest] Fetching r/{subreddit}...")
-        posts = fetch_reddit_feed(subreddit, url)
-        all_posts.extend(posts)
-        print(f"  -> {len(posts)} recent posts")
+    all_posts: list[dict] = []
+    seen_urls: set = set()
+
+    print("[digest] Fetching Hacker News...")
+    for query in HN_QUERIES:
+        for post in fetch_hn(query):
+            if post["url"] not in seen_urls:
+                seen_urls.add(post["url"])
+                all_posts.append(post)
+    print(f"  -> {len(all_posts)} HN posts")
+
+    reddit_posts = fetch_reddit_oauth()
+    for post in reddit_posts:
+        if post["url"] not in seen_urls:
+            seen_urls.add(post["url"])
+            all_posts.append(post)
+
+    print(f"[digest] Total: {len(all_posts)} posts")
     return all_posts
 
 
 # ---------------------------------------------------------------------------
-# Digest Composition
+# Digest composition
 # ---------------------------------------------------------------------------
 
 def compose_digest(posts: list[dict], week_date: str) -> str:
@@ -122,30 +175,30 @@ def compose_digest(posts: list[dict], week_date: str) -> str:
         return (
             f"# UBW Weekly Research Digest\n"
             f"*Week of: {week_date}*\n\n"
-            "No relevant posts found this week. Try again next Monday.\n\n"
+            "No relevant posts found this week.\n\n"
             "*Generated by UBW Research Agent*"
         )
 
-    games_context = "\n".join(f"- {name}: {desc}" for name, desc in GAMES)
-
+    games_ctx = "\n".join(f"- {name}: {desc}" for name, desc in GAMES)
     posts_text = []
-    for p in posts[:40]:  # cap at 40 posts to stay within token budget
-        posts_text.append(
-            f"[r/{p['subreddit']}] {p['title']}\nURL: {p['url']}\n{p['text']}"
-        )
+    for p in posts[:50]:
+        line = f"[{p['source']}] {p['title']}\nURL: {p['url']}"
+        if p.get("text"):
+            line += f"\n{p['text']}"
+        posts_text.append(line)
     posts_block = "\n\n---\n\n".join(posts_text)
 
     prompt = f"""You are a research assistant for Unlimited Board Works, a small bootstrapped board game studio in Lima, Peru.
 
 Games in development:
-{games_context}
+{games_ctx}
 
 Below are recent posts from board game design communities. Analyze them and produce the weekly research digest.
 
 POSTS:
 {posts_block}
 
-Produce the digest in EXACTLY this format — no deviation:
+Produce the digest in EXACTLY this format:
 
 ---
 # UBW Weekly Research Digest
@@ -183,10 +236,10 @@ Produce the digest in EXACTLY this format — no deviation:
 ---
 
 Rules:
-- Only report what actually exists in the posts above. Never invent sources or URLs.
+- Only include findings from the posts above. Never fabricate sources or URLs.
 - If a category has fewer than 3 real results, say so honestly rather than padding.
-- Keep each table row concise — idea name, how it works in 10-15 words, URL, best-fit game.
-- "Best fit" must be one of: To Be The One, Dead Man's Tide, Ashen Kingdom, High Noon Saloon, or All."""
+- Each table row: idea name, how it works in 10-15 words, URL, best-fit game.
+- Best fit must be one of: To Be The One, Dead Man's Tide, Ashen Kingdom, High Noon Saloon, or All."""
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     message = client.messages.create(
@@ -215,10 +268,10 @@ def send_digest(subject: str, body: str) -> bool:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
             smtp.login(sender, password)
             smtp.sendmail(sender, RECIPIENTS, msg.as_string())
-        print(f"[digest] Sent to {', '.join(RECIPIENTS)}: {subject}")
+        print(f"[digest] Sent to {', '.join(RECIPIENTS)}")
         return True
     except Exception as e:
-        print(f"[digest] Failed to send: {e}", file=sys.stderr)
+        print(f"[digest] Send failed: {e}", file=sys.stderr)
         return False
 
 
@@ -231,8 +284,6 @@ def main():
     subject   = f"UBW Weekly Research Digest — {week_date}"
 
     posts = gather_posts()
-    print(f"[digest] Total posts collected: {len(posts)}")
-
     print("[digest] Composing digest with Claude...")
     body = compose_digest(posts, week_date)
 
