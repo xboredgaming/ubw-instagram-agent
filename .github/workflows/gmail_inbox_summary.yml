@@ -1,0 +1,32 @@
+name: UBW Daily Inbox Summary
+
+on:
+  schedule:
+    - cron: '0 23 * * *'  # 6:00 PM Lima (UTC-5)
+  workflow_dispatch: {}   # manual trigger for testing
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+
+    env:
+      TZ: America/Lima
+      ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+      GMAIL_SENDER:        ${{ secrets.GMAIL_SENDER }}
+      GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
+      GMAIL_CLIENT_ID:     ${{ secrets.GMAIL_CLIENT_ID }}
+      GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+      GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send inbox summary
+        run: python tools/gmail_inbox_summary.py
