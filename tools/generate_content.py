@@ -105,7 +105,7 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
         "Image prompt rules:\n"
         "- Depict the game's Visual world — environments, atmosphere, scenes. NO cards, NO components, NO prototype art.\n"
         "- Square 1:1 format. No text, no faces.\n"
-        f"- Slot {slot} of 6: choose a COMPLETELY DIFFERENT scene from other slots. "
+        f"- Slot {slot} of 4: choose a COMPLETELY DIFFERENT scene from other slots. "
         "Vary: subject (foreground focus vs wide landscape), lighting (dawn/dusk/night/midday), "
         "weather/atmosphere, camera distance (extreme close-up vs aerial), color palette emphasis.\n"
         "- Each slot must feel like a different film frame from the same world — never the same composition twice.\n\n"
