@@ -65,13 +65,13 @@ Unlimited Board Works is a creator-led, independent publisher. The brand voice i
 ## SECTION 2: GAME CONTEXT — TO BE THE ONE
 
 ### What This Game Is
-To Be the One is a shared-deck card game for 2–7 players, playable in 30–60 minutes. Players each embody one of seven cosmic entities — Fate, Chaos, Void, Existence, Eternity, Infinity, or Reality — competing to assert dominance over the universe. No one is eliminated; everyone plays until the very end.
+To Be the One is a shared-deck card game for 2–7 players, playable in 30–60 minutes. Players each embody one of seven cosmic entities — Order, Chaos, Void, Existence, Time, Space, or Energy — competing to assert dominance over the universe. No one is eliminated; everyone plays until the very end.
 
 ### Theme & Aesthetic
 Cosmic lo-fi. Think ancient forces of the universe rendered in a calm, mysterious, almost meditative visual style. The tone sits between philosophical and epic — vast scale, quiet power. Not aggressive. Not cartoony. Think: starfields, sigils, glowing influence tokens, the weight of eternity.
 
 ### How It Plays
-All players draw from one shared 167-card deck. Each player starts with 5 cards, holds a max of 6, and draws one per turn. To win, a player must place their colored Influence tokens on every other player — not by eliminating them, but by outmaneuvering them through seven card types: Dominion, Support, Action, Structure, Event, Negation (Null), and Universal (Neutral). Each entity has a unique passive ability. Reality, for example, can override one targeted effect per round — but cannot override core rules or win conditions.
+All players draw from one shared 167-card deck. Each player starts with 5 cards, holds a max of 6, and draws one per turn. To win, a player must place their colored Influence tokens on every other player — not by eliminating them, but by outmaneuvering them through seven card types: Dominion, Support, Action, Structure, Event, Negation (Null), and Universal (Neutral). Each entity has a unique passive ability. Energy, for example, can override one targeted effect per round — but cannot override core rules or win conditions.
 
 ### The Seven Entities
 - **Order** — Controls the flow of the game through prediction and inevitability
