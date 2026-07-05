@@ -34,29 +34,29 @@
       "name": "To Be the One",
       "session": "evening",
       "art_rotation": {
-        "style": "Cosmic lo-fi, not space opera — avoid photorealistic space photography, starfield/nebula/ringed-planet stock imagery, spaceships, space stations, or any busy sci-fi scene. Soft matte painterly digital illustration with fine film grain, no readable text, no intricate small-scale detail. Meditative and ancient — the feeling of held breath, not spectacle.",
+        "style": "Cosmic lo-fi, not space opera — avoid photorealistic space photography, starfield/nebula/ringed-planet stock imagery, spaceships, space stations, or any busy sci-fi scene. No readable text, no faces. Meditative and ancient — the feeling of held breath, not spectacle.",
         "registers": [
           {
             "name": "Monolith",
-            "prompt": "A single ancient stone structure etched with faint glowing glyphs, standing alone in an empty dark void, lit by one distant point of light. Heavy negative space, restrained and quiet — wide shot or extreme close-up on the etched texture."
+            "prompt": "A single ancient stone structure etched with faint glowing glyphs, standing alone in an empty dark void, lit by one distant point of light. Heavy negative space, restrained and quiet, with restrained carved detail rather than an overly intricate surface — wide shot or extreme close-up on the etched texture. Soft matte painterly digital illustration with fine film grain."
           },
           {
             "name": "Energy",
-            "prompt": "Fully abstract cosmic force — threads of light slowly converging toward, or radiating from, a single point of stillness. Topographic and painterly rather than illustrative, heavy negative space in the outer frame."
+            "prompt": "Fully abstract cosmic force — threads of light slowly converging toward, or radiating from, a single point of stillness. Topographic and painterly rather than illustrative, heavy negative space in the outer frame. Soft matte painterly digital illustration with fine film grain."
           },
           {
             "name": "Sigil",
-            "prompt": "A single glowing geometric sigil hovering in near-total darkness. Minimal, meditative composition with vast negative space, extreme close-up on the mark itself."
+            "prompt": "Extreme close-up on the entity's own signature sigil mark: {motif}. Rendered as fine glowing constellation-style line art — thin luminous linework, not solid shapes and not matte painting — on a pure black background, with a dense scatter of tiny star-dust particles in the surrounding void and one bright pinpoint of light at the mark's core. Symmetric and precise, like a sacred astronomical diagram."
           }
         ],
         "entities": [
-          { "name": "Order",     "color": "pale gold and warm bone-white" },
-          { "name": "Chaos",     "color": "deep rust-red and dark ember-orange" },
-          { "name": "Void",      "color": "near-black violet, the glow barely visible" },
-          { "name": "Existence", "color": "warm amber and burnt sienna" },
-          { "name": "Time",      "color": "muted slate-blue and steel grey" },
-          { "name": "Space",     "color": "pale teal and cool grey-blue" },
-          { "name": "Energy",    "color": "muted magenta-violet" }
+          { "name": "Order",     "color": "warm gold and amber", "motif": "a radial compass of concentric rings around a glowing hexagram core, with a vertical star-tipped axis through the center — precise and symmetric" },
+          { "name": "Chaos",     "color": "vivid red with brighter ember-orange at its hottest points", "motif": "a fractal burst of jagged, cracked lightning-like branches radiating from a dark circular void at the center — chaotic, spiky, and organic" },
+          { "name": "Void",      "color": "white and silver, near-monochrome, with a center of pure unlit black", "motif": "a glowing ring encircling total blackness like the rim of a black hole, with two small satellite circles above and below on a vertical axis" },
+          { "name": "Existence", "color": "emerald green", "motif": "a vertical star-cross through overlapping concentric rings, with two small orbiting points along the horizontal axis" },
+          { "name": "Time",      "color": "white and silver, near-monochrome", "motif": "a spiral galaxy vortex with a vertical star-tipped axis through its center, fine star-dust trailing along the spiral arms" },
+          { "name": "Space",     "color": "vivid electric blue and white", "motif": "layered orbital rings with tiny glowing planets caught mid-orbit, a bright four-point star at the core" },
+          { "name": "Energy",    "color": "violet and deep purple", "motif": "a swirling vortex of cracked lightning-like tendrils spiraling around a bright ringed core, with a cross-hair axis through the center" }
         ]
       },
       "hashtags": [

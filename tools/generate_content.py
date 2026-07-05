@@ -80,9 +80,13 @@ def _resolve_visual_world(game: dict, day_seed: int) -> str:
     register  = registers[day_seed % len(registers)]
     entity    = entities[day_seed % len(entities)]
 
+    # Only the Sigil register's prompt has a {motif} placeholder; .format() is a
+    # no-op for Monolith/Energy since their prompt text has no such placeholder.
+    register_prompt = register["prompt"].format(motif=entity.get("motif", ""))
+
     return (
         f"{rotation['style']}\n"
-        f"Today's register — {register['name']}: {register['prompt']}\n"
+        f"Today's register — {register['name']}: {register_prompt}\n"
         f"Today's entity — {entity['name']}: render the glow/light accents in {entity['color']}. "
         "Reference the entity only through color and mood — never spell out its name or any text."
     )
