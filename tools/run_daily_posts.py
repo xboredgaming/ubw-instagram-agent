@@ -130,12 +130,21 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
           f"cost: ${entry['claude_cost_usd']:.5f}", file=sys.stderr)
     print(f"[{slug}] Caption preview: {content['caption'][:80]}...", file=sys.stderr)
 
-    # Step 2: Generate image
-    print(f"[{slug}] Generating image via kie.ai...", file=sys.stderr)
+    # Step 2: Get image — either a fixed asset (e.g. Sigil register: the real,
+    # established sigil art, never regenerated) or a fresh kie.ai generation
+    asset_image = content.pop("_asset_image", None)
     if dry_run:
         image_path = TMP_DIR / f"{slug}_dry-run.png"
         print(f"[{slug}] [DRY RUN] Skipping image generation", file=sys.stderr)
+    elif asset_image:
+        image_path = Path(__file__).parent.parent / asset_image
+        if not image_path.exists():
+            entry["error"] = f"Asset image not found: {image_path}"
+            _record_post(log, entry)
+            raise FileNotFoundError(entry["error"])
+        print(f"[{slug}] Using fixed asset image: {image_path}", file=sys.stderr)
     else:
+        print(f"[{slug}] Generating image via kie.ai...", file=sys.stderr)
         try:
             image_path = generate_image(content["image_prompt"], slug)
             entry["kie_images"]         = 1

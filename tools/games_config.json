@@ -46,7 +46,8 @@
           },
           {
             "name": "Sigil",
-            "prompt": "Extreme close-up on the entity's own signature sigil mark: {motif}. Rendered as fine glowing constellation-style line art — thin luminous linework, not solid shapes and not matte painting — on a pure black background, with a dense scatter of tiny star-dust particles in the surrounding void and one bright pinpoint of light at the mark's core. Symmetric and precise, like a sacred astronomical diagram."
+            "asset_dir": "assets/sigils",
+            "prompt": "The entity's own established sigil mark: {motif}."
           }
         ],
         "entities": [

@@ -67,13 +67,16 @@ def pick_theme() -> str:
     return THEMES[date.today().toordinal() % len(THEMES)]
 
 
-def _resolve_visual_world(game: dict, day_seed: int) -> str:
+def _resolve_visual_world(game: dict, day_seed: int) -> tuple[str, dict | None, dict | None]:
     """Static games use `visual_world` as-is. Games with `art_rotation` get a
     deterministic register + entity pick (computed here, not left to the model,
-    since asking an LLM to do modulo on a date ordinal is asking for drift)."""
+    since asking an LLM to do modulo on a date ordinal is asking for drift).
+    Returns (visual_world_text, register, entity) — register/entity are None
+    for games without art_rotation, so callers can tell whether a fixed asset
+    image applies (see register.get("asset_dir") in run_daily_posts.py)."""
     rotation = game.get("art_rotation")
     if not rotation:
-        return game.get("visual_world", "")
+        return game.get("visual_world", ""), None, None
 
     registers = rotation["registers"]
     entities  = rotation["entities"]
@@ -84,12 +87,13 @@ def _resolve_visual_world(game: dict, day_seed: int) -> str:
     # no-op for Monolith/Energy since their prompt text has no such placeholder.
     register_prompt = register["prompt"].format(motif=entity.get("motif", ""))
 
-    return (
+    text = (
         f"{rotation['style']}\n"
         f"Today's register — {register['name']}: {register_prompt}\n"
         f"Today's entity — {entity['name']}: render the glow/light accents in {entity['color']}. "
         "Reference the entity only through color and mood — never spell out its name or any text."
     )
+    return text, register, entity
 
 
 def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dict:
@@ -106,7 +110,7 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
     )
 
     day_seed = date.today().toordinal()
-    visual_world = _resolve_visual_world(game, day_seed)
+    visual_world, register, entity = _resolve_visual_world(game, day_seed)
 
     user_prompt = (
         f"Generate an Instagram Reel caption for: {game['name']}\n\n"
@@ -168,6 +172,11 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
                     message.usage.output_tokens * CLAUDE_OUTPUT_COST_PER_TOKEN
                 ),
             }
+            # If today's register ships a fixed asset (e.g. Sigil), the caller
+            # skips kie.ai entirely and uses the real file — Claude's image_prompt
+            # is simply unused in that case.
+            if register is not None and register.get("asset_dir"):
+                result["_asset_image"] = f"{register['asset_dir']}/{entity['name'].lower()}.png"
             return result
         except (json.JSONDecodeError, ValueError) as e:
             last_err = e
