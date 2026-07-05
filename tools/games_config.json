@@ -33,7 +33,32 @@
       "slug": "to-be-the-one",
       "name": "To Be the One",
       "session": "evening",
-      "visual_world": "Cosmic lo-fi, not space opera — avoid photorealistic space photography, starfield/nebula/ringed-planet stock imagery, spaceships, space stations, or any busy sci-fi scene. Alternate between two registers using the day seed already provided (even day → Monolith, odd day → Energy) so consecutive posts don't repeat: MONOLITH — a single ancient stone structure etched with faint glowing glyphs, standing alone in an empty dark void, lit by one distant point of light; muted charcoal and deep violet tones, heavy negative space, restrained and quiet. ENERGY — fully abstract cosmic force, threads of pale light slowly converging toward a point of stillness; muted teal-grey palette, topographic and painterly rather than illustrative. Both registers: soft matte painterly digital illustration with fine film grain, no readable text, no intricate small-scale detail. Meditative and ancient — the feeling of held breath, not spectacle.",
+      "art_rotation": {
+        "style": "Cosmic lo-fi, not space opera — avoid photorealistic space photography, starfield/nebula/ringed-planet stock imagery, spaceships, space stations, or any busy sci-fi scene. Soft matte painterly digital illustration with fine film grain, no readable text, no intricate small-scale detail. Meditative and ancient — the feeling of held breath, not spectacle.",
+        "registers": [
+          {
+            "name": "Monolith",
+            "prompt": "A single ancient stone structure etched with faint glowing glyphs, standing alone in an empty dark void, lit by one distant point of light. Heavy negative space, restrained and quiet — wide shot or extreme close-up on the etched texture."
+          },
+          {
+            "name": "Energy",
+            "prompt": "Fully abstract cosmic force — threads of light slowly converging toward, or radiating from, a single point of stillness. Topographic and painterly rather than illustrative, heavy negative space in the outer frame."
+          },
+          {
+            "name": "Sigil",
+            "prompt": "A single glowing geometric sigil hovering in near-total darkness. Minimal, meditative composition with vast negative space, extreme close-up on the mark itself."
+          }
+        ],
+        "entities": [
+          { "name": "Order",     "color": "pale gold and warm bone-white" },
+          { "name": "Chaos",     "color": "deep rust-red and dark ember-orange" },
+          { "name": "Void",      "color": "near-black violet, the glow barely visible" },
+          { "name": "Existence", "color": "warm amber and burnt sienna" },
+          { "name": "Time",      "color": "muted slate-blue and steel grey" },
+          { "name": "Space",     "color": "pale teal and cool grey-blue" },
+          { "name": "Energy",    "color": "muted magenta-violet" }
+        ]
+      },
       "hashtags": [
         "#boardgames", "#kickstarter", "#tabletopgames", "#indiegames", "#boardgamegeek",
         "#UnlimitedBoardWorks", "#ToBeTheOne", "#cosmicgames", "#shareddeckgame",

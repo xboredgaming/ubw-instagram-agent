@@ -67,6 +67,27 @@ def pick_theme() -> str:
     return THEMES[date.today().toordinal() % len(THEMES)]
 
 
+def _resolve_visual_world(game: dict, day_seed: int) -> str:
+    """Static games use `visual_world` as-is. Games with `art_rotation` get a
+    deterministic register + entity pick (computed here, not left to the model,
+    since asking an LLM to do modulo on a date ordinal is asking for drift)."""
+    rotation = game.get("art_rotation")
+    if not rotation:
+        return game.get("visual_world", "")
+
+    registers = rotation["registers"]
+    entities  = rotation["entities"]
+    register  = registers[day_seed % len(registers)]
+    entity    = entities[day_seed % len(entities)]
+
+    return (
+        f"{rotation['style']}\n"
+        f"Today's register — {register['name']}: {register['prompt']}\n"
+        f"Today's entity — {entity['name']}: render the glow/light accents in {entity['color']}. "
+        "Reference the entity only through color and mood — never spell out its name or any text."
+    )
+
+
 def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dict:
     """Returns the content dict with an extra '_usage' key for cost tracking."""
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -81,7 +102,7 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
     )
 
     day_seed = date.today().toordinal()
-    visual_world = game.get("visual_world", "")
+    visual_world = _resolve_visual_world(game, day_seed)
 
     user_prompt = (
         f"Generate an Instagram Reel caption for: {game['name']}\n\n"
