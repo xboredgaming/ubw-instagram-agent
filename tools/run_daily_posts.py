@@ -188,8 +188,8 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--slot",    type=int, choices=range(1, 7),
-                      help="Post slot 1–6 (used by Task Scheduler)")
+    mode.add_argument("--slot",    type=int, choices=range(1, 5),
+                      help="Post slot 1–4 (used by Task Scheduler)")
     mode.add_argument("--session", choices=["morning", "midday", "evening"],
                       help="Session name (manual runs: posts 2 games)")
     parser.add_argument("--game",    help="Restrict to one game slug (session mode only)")
@@ -210,7 +210,7 @@ def main():
         slug         = rotation[pattern_idx][args.slot - 1]
         game         = load_game(slug)
         game["cta_phase"] = cta_phase
-        session      = "morning" if args.slot <= 2 else ("midday" if args.slot <= 4 else "evening")
+        session      = "morning" if args.slot == 1 else ("midday" if args.slot <= 3 else "evening")
 
         print(f"Slot {args.slot} | Day pattern {pattern_idx} | Game: {slug} | Dry run: {args.dry_run}",
               file=sys.stderr)

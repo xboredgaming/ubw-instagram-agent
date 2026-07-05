@@ -3,17 +3,15 @@ name: UBW Instagram Agent
 on:
   schedule:
     - cron: '0 15 * * 1-6'   # Slot 1 — 10:00 AM Lima (UTC-5)
-    - cron: '30 16 * * 1-6'  # Slot 2 — 11:30 AM Lima
-    - cron: '0 18 * * 1-6'   # Slot 3 —  1:00 PM Lima
-    - cron: '30 19 * * 1-6'  # Slot 4 —  2:30 PM Lima
-    - cron: '0 23 * * 1-6'   # Slot 5 —  6:00 PM Lima
-    - cron: '30 0 * * 0,2-6'  # Slot 6 —  7:30 PM Lima (UTC midnight +, Sun=0)
+    - cron: '0 18 * * 1-6'   # Slot 2 —  1:00 PM Lima
+    - cron: '0 21 * * 1-6'   # Slot 3 —  4:00 PM Lima
+    - cron: '0 0 * * 0,2-6'  # Slot 4 —  7:00 PM Lima (UTC midnight +, Sun=0)
     - cron: '0 1 * * 0,2-6'   # Summary — 8:00 PM Lima (UTC midnight +, Sun=0)
 
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Slot to post (1–6). Leave blank to infer from Lima time.'
+        description: 'Slot to post (1–4). Leave blank to infer from Lima time.'
         required: false
         type: string
       dry_run:
@@ -69,11 +67,9 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ]; then
             case "${{ github.event.schedule }}" in
               "0 15 * * 1-6")   SLOT=1 ;;
-              "30 16 * * 1-6")  SLOT=2 ;;
-              "0 18 * * 1-6")   SLOT=3 ;;
-              "30 19 * * 1-6")  SLOT=4 ;;
-              "0 23 * * 1-6")   SLOT=5 ;;
-              "30 0 * * 0,2-6") SLOT=6 ;;
+              "0 18 * * 1-6")   SLOT=2 ;;
+              "0 21 * * 1-6")   SLOT=3 ;;
+              "0 0 * * 0,2-6")  SLOT=4 ;;
               "0 1 * * 0,2-6")  IS_SUMMARY="true" ;;
             esac
           fi
@@ -86,11 +82,9 @@ jobs:
               H=$(date +%H)
               case "$H" in
                 10) SLOT=1 ;;
-                11) SLOT=2 ;;
-                13) SLOT=3 ;;
-                14) SLOT=4 ;;
-                18) SLOT=5 ;;
-                19) SLOT=6 ;;
+                13) SLOT=2 ;;
+                16) SLOT=3 ;;
+                19) SLOT=4 ;;
                 20) IS_SUMMARY="true" ;;
               esac
             fi
@@ -101,7 +95,7 @@ jobs:
           echo "lima_date=$LIMA_DATE"   >> $GITHUB_OUTPUT
           echo "Lima time: $(date +%H:%M) | cron: ${{ github.event.schedule }} | slot=$SLOT | summary=$IS_SUMMARY"
 
-      # Restore today's accumulated cost log so totals carry across the 6 daily runs.
+      # Restore today's accumulated cost log so totals carry across the 4 daily runs.
       # New cache entry per run; restore-keys picks up the latest one for today.
       - name: Restore cost log cache
         uses: actions/cache@v4
@@ -132,5 +126,5 @@ jobs:
         if: steps.ctx.outputs.is_summary == 'false' && steps.ctx.outputs.slot == ''
         run: |
           echo "No slot matched. Lima time: $(date +%H:%M) | cron: ${{ github.event.schedule }}"
-          echo "For manual runs, always specify a slot (1–6)."
+          echo "For manual runs, always specify a slot (1–4)."
           exit 1

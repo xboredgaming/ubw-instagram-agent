@@ -1,10 +1,10 @@
 {
   "context_file": "ubw_social_media_agent_context.md",
   "cta_phase": "follow",
-  "post_times": ["10:00", "11:30", "13:00", "14:30", "18:00", "19:30"],
+  "post_times": ["10:00", "13:00", "16:00", "19:00"],
   "daily_rotation": [
-    ["dead-mans-tide", "ashen-kingdom", "to-be-the-one", "high-noon-saloon", "dead-mans-tide", "ashen-kingdom"],
-    ["to-be-the-one", "high-noon-saloon", "dead-mans-tide", "ashen-kingdom", "to-be-the-one", "high-noon-saloon"]
+    ["dead-mans-tide", "ashen-kingdom", "to-be-the-one", "high-noon-saloon"],
+    ["to-be-the-one", "high-noon-saloon", "dead-mans-tide", "ashen-kingdom"]
   ],
   "games": [
     {
