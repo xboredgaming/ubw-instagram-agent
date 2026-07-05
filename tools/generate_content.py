@@ -1,4 +1,4 @@
-"""
+﻿"""
 Generates Instagram caption and image prompt for a given game using Claude.
 Only loads the relevant brand sections to minimise token usage.
 
@@ -67,7 +67,7 @@ def pick_theme() -> str:
     return THEMES[date.today().toordinal() % len(THEMES)]
 
 
-def generate_content(game: dict, theme: str, session: str) -> dict:
+def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dict:
     """Returns the content dict with an extra '_usage' key for cost tracking."""
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     brand_context = load_brand_context_for_game(game["name"])
@@ -87,23 +87,33 @@ def generate_content(game: dict, theme: str, session: str) -> dict:
         f"Generate an Instagram Reel caption for: {game['name']}\n\n"
         f"Post theme: {theme.replace('_', ' ').title()}\n"
         f"CTA: {cta_text}\n"
-        f"Day seed: {day_seed} — make this feel distinct from prior posts on this theme.\n"
+        f"Day seed: {day_seed}, Slot: {slot} — use both to make this caption and image DISTINCT from every other slot today.\n"
         f"Hashtags (use these exactly, do not add or remove): {json.dumps(game['hashtags'])}\n"
         + (f"Visual world: {visual_world}\n" if visual_world else "")
-        + "\nRules:\n"
+        + "\nCaption rules:\n"
         "- Apply this game's exact social media tone and post angles from the context above\n"
         "- Hook (first line): scroll-stopping question, bold statement, or intriguing fragment — under 100 characters\n"
         "- Body: 2–3 short punchy sentences, no walls of text\n"
-        "- Total caption length: 150–280 characters (not counting hashtags)\n"
+        "- End with the CTA text provided above — use it exactly as written, nothing else\n"
+        "- Total caption length: 150–280 characters (not counting hashtags or CTA)\n"
         "- Use 1–3 relevant emojis naturally in the caption — not as bullet points\n"
         "- No hashtags inside the caption text — return them in the JSON hashtags field only\n"
-        "- NEVER reference, describe, or mention game cards, game components, tokens, or prototype art "
-        "in the caption — the game is pre-launch and nothing is finalized. Build intrigue around the world and story.\n"
-        "- Image prompt: depict the game's Visual world described above — environments, atmosphere, "
-        "scenes, characters. NO game cards, NO components, NO prototype art. Square 1:1 format. No text, no faces.\n\n"
+        "- NEVER add a Kickstarter link or URL — the campaign is not live yet. Use the CTA text only.\n"
+        "- NEVER write placeholder text like '[KICKSTARTER LINK]', '[LINK]', '[URL]', or any bracketed placeholder.\n"
+        "- NEVER add music attribution or licensing text (e.g. 'Music: Kevin MacLeod') — that is handled separately.\n"
+        "- NEVER reference, describe, or mention game cards, game components, tokens, or prototype art.\n\n"
+        "Image prompt rules:\n"
+        "- Depict the game's Visual world — environments, atmosphere, scenes. NO cards, NO components, NO prototype art.\n"
+        "- Square 1:1 format. No text, no faces.\n"
+        f"- Slot {slot} of 6: choose a COMPLETELY DIFFERENT scene from other slots. "
+        "Vary: subject (foreground focus vs wide landscape), lighting (dawn/dusk/night/midday), "
+        "weather/atmosphere, camera distance (extreme close-up vs aerial), color palette emphasis.\n"
+        "- Each slot must feel like a different film frame from the same world — never the same composition twice.\n\n"
         "Return ONLY valid JSON:\n"
         '{"caption": "...", "hashtags": ["#tag1"], "image_prompt": "..."}'
     )
+
+    _PLACEHOLDER_RE = re.compile(r'\[[A-Z][A-Z _]{2,}\]')
 
     last_err = None
     for attempt in range(1, MAX_RETRIES + 1):
@@ -120,6 +130,11 @@ def generate_content(game: dict, theme: str, session: str) -> dict:
                 if raw.startswith("json"):
                     raw = raw[4:]
             result = json.loads(raw.strip())
+
+            caption = result.get("caption", "")
+            if _PLACEHOLDER_RE.search(caption):
+                raise ValueError(f"Caption contains placeholder text: {caption[:120]!r}")
+
             result["_usage"] = {
                 "input_tokens":  message.usage.input_tokens,
                 "output_tokens": message.usage.output_tokens,
@@ -129,14 +144,14 @@ def generate_content(game: dict, theme: str, session: str) -> dict:
                 ),
             }
             return result
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, ValueError) as e:
             last_err = e
-            print(f"[generate_content] Attempt {attempt}/{MAX_RETRIES}: JSON parse failed — retrying...",
+            print(f"[generate_content] Attempt {attempt}/{MAX_RETRIES}: {e} — retrying...",
                   file=sys.stderr)
             if attempt < MAX_RETRIES:
                 time.sleep(2)
 
-    raise RuntimeError(f"Claude returned invalid JSON after {MAX_RETRIES} attempts") from last_err
+    raise RuntimeError(f"Claude returned invalid content after {MAX_RETRIES} attempts") from last_err
 
 
 def main():
@@ -158,3 +173,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

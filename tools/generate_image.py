@@ -1,4 +1,4 @@
-"""
+﻿"""
 Generates an image from a prompt using kie.ai's gpt-image-2 model.
 
 Usage:
@@ -23,7 +23,7 @@ TMP_DIR.mkdir(exist_ok=True)
 
 KIE_API_BASE  = "https://api.kie.ai/api/v1"
 POLL_INTERVAL = 5    # seconds between status checks
-POLL_TIMEOUT  = 120  # max seconds to wait before giving up
+POLL_TIMEOUT  = 300  # max seconds to wait before giving up
 
 
 def generate_image(prompt: str, game_slug: str, output_path: Path = None) -> Path:
@@ -93,8 +93,22 @@ def generate_image(prompt: str, game_slug: str, output_path: Path = None) -> Pat
 
             img_resp = requests.get(image_url, timeout=60)
             img_resp.raise_for_status()
+            content = img_resp.content
+
+            _PNG_HEADER = b'\x89PNG\r\n\x1a\n'
+            if len(content) < 8192:
+                raise RuntimeError(
+                    f"Kie.ai returned a suspiciously small image ({len(content)} bytes) — "
+                    "likely corrupt or empty. Not saving."
+                )
+            if not content.startswith(_PNG_HEADER):
+                raise RuntimeError(
+                    f"Kie.ai response is not a valid PNG (bad header). "
+                    f"First 8 bytes: {content[:8]!r}"
+                )
+
             with open(output_path, "wb") as f:
-                f.write(img_resp.content)
+                f.write(content)
 
             print(f"Image saved: {output_path}", file=sys.stderr)
             return output_path
@@ -119,3 +133,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
