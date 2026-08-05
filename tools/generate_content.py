@@ -16,8 +16,9 @@ import time
 from datetime import date
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
+
+from kie_llm import generate_text
 
 load_dotenv()
 
@@ -29,14 +30,11 @@ CTA_PHASES = {
     "kickstarter": "We're LIVE on Kickstarter — link in bio. Back us today!",
 }
 
-# claude-sonnet-5 via kie.ai — billed in kie.ai credits; these USD figures are
-# an estimate at Anthropic direct-API Sonnet rates for the cost log only.
+# Text gen is billed in kie.ai credits (model chain lives in kie_llm.py); these
+# USD figures are an estimate at Anthropic direct-API Sonnet rates for the cost
+# log only.
 CLAUDE_INPUT_COST_PER_TOKEN  = 3.00  / 1_000_000
 CLAUDE_OUTPUT_COST_PER_TOKEN = 15.00 / 1_000_000
-
-# kie.ai's Claude market speaks the Anthropic Messages protocol at this base URL
-# (the SDK appends /v1/messages) and authenticates via "Authorization: Bearer".
-KIE_CLAUDE_BASE_URL = "https://api.kie.ai/claude"
 
 MAX_RETRIES = 3
 
@@ -103,10 +101,6 @@ def _resolve_visual_world(game: dict, day_seed: int) -> tuple[str, dict | None, 
 
 def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dict:
     """Returns the content dict with an extra '_usage' key for cost tracking."""
-    client = anthropic.Anthropic(
-        base_url=KIE_CLAUDE_BASE_URL,
-        auth_token=os.getenv("KIE_API_KEY"),
-    )
     brand_context = load_brand_context_for_game(game["name"])
     cta_text = CTA_PHASES.get(game["cta_phase"], CTA_PHASES["follow"])
 
@@ -155,13 +149,8 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
     last_err = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            message = client.messages.create(
-                model="claude-sonnet-5",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-            raw = message.content[0].text.strip()
+            raw, usage = generate_text(user_prompt, system=system_prompt,
+                                       max_tokens=1024)
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
@@ -173,11 +162,12 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
                 raise ValueError(f"Caption contains placeholder text: {caption[:120]!r}")
 
             result["_usage"] = {
-                "input_tokens":  message.usage.input_tokens,
-                "output_tokens": message.usage.output_tokens,
+                "input_tokens":  usage["input_tokens"],
+                "output_tokens": usage["output_tokens"],
+                "model":         usage["model"],
                 "cost_usd": (
-                    message.usage.input_tokens  * CLAUDE_INPUT_COST_PER_TOKEN +
-                    message.usage.output_tokens * CLAUDE_OUTPUT_COST_PER_TOKEN
+                    usage["input_tokens"]  * CLAUDE_INPUT_COST_PER_TOKEN +
+                    usage["output_tokens"] * CLAUDE_OUTPUT_COST_PER_TOKEN
                 ),
             }
             # If today's register ships a fixed asset (e.g. Sigil), the caller

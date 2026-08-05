@@ -22,9 +22,10 @@ from datetime import date, datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import anthropic
 import requests
 from dotenv import load_dotenv
+
+from kie_llm import generate_text
 
 load_dotenv()
 
@@ -328,15 +329,7 @@ Recent posts from board game design communities:
 
 Rules: Only use content from the posts above. If a section has fewer than 3 real results from the posts, supplement with knowledge-base entries and label them "Knowledge Base". Best fit options: To Be The One | Dead Man's Tide | Ashen Kingdom | High Noon Saloon | All."""
 
-    client = anthropic.Anthropic(
-        base_url="https://api.kie.ai/claude",  # kie.ai Claude market (Anthropic protocol)
-        auth_token=os.environ["KIE_API_KEY"],
-    )
-    return client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}],
-    ).content[0].text.strip()
+    return generate_text(prompt, max_tokens=3000)[0]
 
 
 def compose_digest_knowledge_mode(week_date: str, source_notes: list[str]) -> str:
@@ -357,15 +350,7 @@ Be specific — reference real published games, designers, and studios where pos
 
 Rules: Be specific and useful — avoid generic advice. Reference real games and designers. Best fit options: To Be The One | Dead Man's Tide | Ashen Kingdom | High Noon Saloon | All."""
 
-    client = anthropic.Anthropic(
-        base_url="https://api.kie.ai/claude",  # kie.ai Claude market (Anthropic protocol)
-        auth_token=os.environ["KIE_API_KEY"],
-    )
-    return client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}],
-    ).content[0].text.strip()
+    return generate_text(prompt, max_tokens=3000)[0]
 
 
 def compose_digest(posts: list[dict], week_date: str, source_notes: list[str]) -> str:

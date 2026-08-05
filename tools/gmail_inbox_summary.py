@@ -21,8 +21,9 @@ from email.header import decode_header as _decode_raw
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import anthropic
 from dotenv import load_dotenv
+
+from kie_llm import generate_text
 
 load_dotenv()
 
@@ -195,31 +196,21 @@ def compose_summary(email_data: dict[str, list]) -> str:
     action_labels = {"Legal", "Finance", "Team", "Kickstarter", "Manufacturers", "Artists"}
     action_count  = sum(len(v) for k, v in email_data.items() if k in action_labels)
 
-    client = anthropic.Anthropic(
-        base_url="https://api.kie.ai/claude",  # kie.ai Claude market (Anthropic protocol)
-        auth_token=os.environ["KIE_API_KEY"],
+    prompt = (
+        "You are a daily briefing assistant for Rodrigo, CEO of Unlimited Board Works "
+        "(pre-launch board game company, Lima, Peru).\n\n"
+        "Here are emails from the last 24 hours grouped by label:\n\n"
+        f"{raw}\n\n"
+        "Write a clean daily email summary. Rules:\n"
+        "- Keep the section order as given (Legal first, Uncategorized last)\n"
+        "- For each email: sender name, subject, and a 5-10 word note on what it's about\n"
+        "- Skip empty sections\n"
+        "- Keep it scannable — this is a briefing, not a wall of text\n"
+        f"- End with: '{action_count} email(s) requiring attention today'\n"
+        "- Plain text only, no markdown symbols or bullet characters"
     )
-    message = client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": (
-                "You are a daily briefing assistant for Rodrigo, CEO of Unlimited Board Works "
-                "(pre-launch board game company, Lima, Peru).\n\n"
-                "Here are emails from the last 24 hours grouped by label:\n\n"
-                f"{raw}\n\n"
-                "Write a clean daily email summary. Rules:\n"
-                "- Keep the section order as given (Legal first, Uncategorized last)\n"
-                "- For each email: sender name, subject, and a 5-10 word note on what it's about\n"
-                "- Skip empty sections\n"
-                "- Keep it scannable — this is a briefing, not a wall of text\n"
-                f"- End with: '{action_count} email(s) requiring attention today'\n"
-                "- Plain text only, no markdown symbols or bullet characters"
-            ),
-        }],
-    )
-    return message.content[0].text
+    text, _usage = generate_text(prompt, max_tokens=1024)
+    return text
 
 
 def send_summary(subject: str, body: str) -> bool:
