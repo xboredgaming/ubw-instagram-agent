@@ -115,7 +115,7 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
         content = generate_content(game, theme, session, slot=slot)
     except anthropic.APIStatusError as e:
         if "billing" in str(e).lower() or "credit" in str(e).lower():
-            send_billing_alert("Anthropic (Claude)", str(e))
+            send_billing_alert("kie.ai (Claude Sonnet 5)", str(e))
         entry["error"] = str(e)
         _record_post(log, entry)
         raise

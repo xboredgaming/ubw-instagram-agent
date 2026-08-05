@@ -195,9 +195,12 @@ def compose_summary(email_data: dict[str, list]) -> str:
     action_labels = {"Legal", "Finance", "Team", "Kickstarter", "Manufacturers", "Artists"}
     action_count  = sum(len(v) for k, v in email_data.items() if k in action_labels)
 
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = anthropic.Anthropic(
+        base_url="https://api.kie.ai/claude",  # kie.ai Claude market (Anthropic protocol)
+        auth_token=os.environ["KIE_API_KEY"],
+    )
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-5",
         max_tokens=1024,
         messages=[{
             "role": "user",

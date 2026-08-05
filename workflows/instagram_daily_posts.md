@@ -7,7 +7,7 @@ Generate and publish four Instagram posts per day — one per board game — usi
 ## Required Inputs
 
 - `tools/games_config.json` — filled in with all four game details
-- `.env` — all API keys set (Anthropic, OpenAI, imgbb, Instagram)
+- `.env` — all API keys set (kie.ai for Claude Sonnet 5 + images, OpenAI, imgbb, Instagram)
 - Instagram Business account linked to Meta Graph API (see One-Time Setup below)
 
 ## Tools Used
@@ -165,7 +165,7 @@ Make sure to set the correct timezone in Task Scheduler properties.
 
 | Error | Likely cause | Fix |
 |-------|-------------|-----|
-| `ANTHROPIC_API_KEY not set` | Missing .env key | Add key to `.env` |
+| `KIE_API_KEY not set` | Missing .env key | Add key to `.env` |
 | `OPENAI_API_KEY not set` | Missing .env key | Add key to `.env` |
 | `imgbb upload failed` | Bad API key or network | Verify `IMGBB_API_KEY` in .env |
 | `Failed to create media container` | Bad Instagram token or account ID | Re-check `.env` values; token may have expired |

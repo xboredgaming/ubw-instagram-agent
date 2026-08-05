@@ -29,9 +29,14 @@ CTA_PHASES = {
     "kickstarter": "We're LIVE on Kickstarter — link in bio. Back us today!",
 }
 
-# claude-sonnet-4-6 pricing (USD per token)
+# claude-sonnet-5 via kie.ai — billed in kie.ai credits; these USD figures are
+# an estimate at Anthropic direct-API Sonnet rates for the cost log only.
 CLAUDE_INPUT_COST_PER_TOKEN  = 3.00  / 1_000_000
 CLAUDE_OUTPUT_COST_PER_TOKEN = 15.00 / 1_000_000
+
+# kie.ai's Claude market speaks the Anthropic Messages protocol at this base URL
+# (the SDK appends /v1/messages) and authenticates via "Authorization: Bearer".
+KIE_CLAUDE_BASE_URL = "https://api.kie.ai/claude"
 
 MAX_RETRIES = 3
 
@@ -98,7 +103,10 @@ def _resolve_visual_world(game: dict, day_seed: int) -> tuple[str, dict | None, 
 
 def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dict:
     """Returns the content dict with an extra '_usage' key for cost tracking."""
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    client = anthropic.Anthropic(
+        base_url=KIE_CLAUDE_BASE_URL,
+        auth_token=os.getenv("KIE_API_KEY"),
+    )
     brand_context = load_brand_context_for_game(game["name"])
     cta_text = CTA_PHASES.get(game["cta_phase"], CTA_PHASES["follow"])
 
@@ -148,7 +156,7 @@ def generate_content(game: dict, theme: str, session: str, slot: int = 1) -> dic
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             message = client.messages.create(
-                model="claude-sonnet-4-6",
+                model="claude-sonnet-5",
                 max_tokens=1024,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
