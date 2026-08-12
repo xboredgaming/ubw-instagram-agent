@@ -17,3 +17,11 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Env backups (full copies of .env with live keys; '.env' does not match them)
+.env.bak*
+.env.*.bak
+
+# OneDrive folder-metadata files (created everywhere, never source)
+desktop.ini
+**/desktop.ini
