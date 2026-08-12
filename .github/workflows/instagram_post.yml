@@ -127,3 +127,12 @@ jobs:
           echo "No slot matched. Lima time: $(date +%H:%M) | cron: ${{ github.event.schedule }}"
           echo "For manual runs, always specify a slot (1–4)."
           exit 1
+
+      # Without this the agent fails silently: the July 2026 token expiry killed
+      # posting for four weeks and nothing ever said so.
+      - name: Alert on failure
+        if: failure()
+        run: |
+          python tools/send_alert.py \
+            --failure "slot=${{ steps.ctx.outputs.slot || 'none' }} summary=${{ steps.ctx.outputs.is_summary }} trigger=${{ github.event_name }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

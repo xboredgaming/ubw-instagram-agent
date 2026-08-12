@@ -68,6 +68,57 @@ def send_billing_alert(service: str, error_message: str):
     _send_email(subject, body)
 
 
+def send_token_alert(error_message: str, expiring_in_days: int = None):
+    """
+    Alert when the Instagram token is dead or about to die.
+
+    Meta's long-lived tokens last 60 days. The May 2026 token lapsed silently on
+    2026-07-16 and cost ~4 weeks of posts, so this is deliberately loud.
+    """
+    if expiring_in_days is not None:
+        subject = f"⚠️ UBW Instagram — access token expires in {expiring_in_days} days"
+        opening = (
+            f"The Instagram access token still works, but expires in {expiring_in_days} days.\n"
+            "Refresh it now and posting continues uninterrupted.\n"
+        )
+    else:
+        subject = "🚨 UBW Instagram — access token expired, posting is DOWN"
+        opening = (
+            "The Instagram access token is no longer valid. Posting is stopped.\n\n"
+            f"Error: {error_message}\n"
+        )
+
+    body = (
+        f"{opening}\n"
+        f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        "To fix (needs your Meta login):\n"
+        "  1. Meta Business Suite → Business Settings → Users → System Users\n"
+        "  2. Generate a token for the Instagram account with scopes:\n"
+        "       instagram_basic, instagram_content_publish, pages_read_engagement\n"
+        "     A System User token does not expire — unlike the 60-day user token.\n"
+        "  3. Update the INSTAGRAM_ACCESS_TOKEN secret in the\n"
+        "     xboredgaming/ubw-instagram-agent repo\n"
+        "  4. Posts resume automatically on the next scheduled slot\n\n"
+        "Until then the agent skips each run before spending kie.ai credits.\n\n"
+        "— UBW Instagram Agent"
+    )
+    _send_email(subject, body)
+
+
+def send_failure_alert(context: str, run_url: str = None):
+    """Alert when a scheduled run fails for any reason not caught upstream."""
+    subject = "🚨 UBW Instagram Agent — scheduled run failed"
+    body = (
+        "A scheduled run of the UBW Instagram agent failed.\n\n"
+        f"Context: {context}\n"
+        f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    )
+    if run_url:
+        body += f"\nLogs: {run_url}\n"
+    body += "\n— UBW Instagram Agent"
+    _send_email(subject, body)
+
+
 def send_daily_summary(cost_log_path: Path):
     """Read today's cost log and send a formatted summary email."""
     if not cost_log_path.exists():
@@ -124,9 +175,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true", help="Send a test alert email")
     parser.add_argument("--summary", action="store_true", help="Send today's cost summary now")
+    parser.add_argument("--failure", metavar="CONTEXT",
+                        help="Send a run-failure alert with the given context string")
+    parser.add_argument("--run-url", help="Link to the failing workflow run")
     args = parser.parse_args()
 
-    if args.test:
+    if args.failure:
+        send_failure_alert(args.failure, args.run_url)
+    elif args.test:
         _send_email(
             "UBW Agent — email test",
             "If you received this, Gmail is configured correctly.\n\n— UBW Instagram Agent"

@@ -30,7 +30,8 @@ from generate_image   import generate_image
 from create_reel      import create_reel
 from upload_video     import upload_video
 from post_instagram   import post_reel_to_instagram
-from send_alert       import send_billing_alert
+from check_token      import check_token, TokenInvalid
+from send_alert       import send_billing_alert, send_token_alert
 
 TMP_DIR = Path(__file__).parent.parent / ".tmp"
 TMP_DIR.mkdir(exist_ok=True)
@@ -65,6 +66,20 @@ def _post_with_retry(video_url: str, caption: str, hashtags: list, dry_run: bool
 
 def _log_path() -> Path:
     return TMP_DIR / f"costs_{date.today()}.json"
+
+def _alert_once_today(key: str) -> bool:
+    """
+    True the first time it's called for `key` today, False after.
+
+    The 4 daily slots would otherwise send the same token alert 4x/day for as
+    long as the problem lasts. .tmp/ is cached per Lima date, so the marker
+    survives across the day's runs.
+    """
+    marker = TMP_DIR / f"alerted_{key}_{date.today()}"
+    if marker.exists():
+        return False
+    marker.touch()
+    return True
 
 def _load_log() -> dict:
     p = _log_path()
@@ -106,6 +121,22 @@ def run_post(game: dict, slot: int, session: str, dry_run: bool) -> dict:
         "claude_input_tokens": 0, "claude_output_tokens": 0, "claude_cost_usd": 0.0,
         "kie_images": 0, "kie_image_cost_usd": 0.0, "total_cost_usd": 0.0,
     }
+
+    # Step 0: Verify the Instagram token BEFORE spending anything. A dead token
+    # used to surface only at the final publish step, after we'd already paid
+    # for a caption and an image that got thrown away.
+    if not dry_run:
+        try:
+            token_status = check_token()
+        except TokenInvalid as e:
+            print(f"[{slug}] Instagram token invalid — skipping before any spend.", file=sys.stderr)
+            if _alert_once_today("token_dead"):
+                send_token_alert(str(e))
+            entry["error"] = f"Instagram token invalid: {e}"
+            _record_post(log, entry)
+            raise
+        if token_status["expiring_soon"] and _alert_once_today("token_expiring"):
+            send_token_alert("", expiring_in_days=token_status["expires_in_days"])
 
     # Step 1: Generate content via Claude
     print(f"[{slug}] Generating content via Claude...", file=sys.stderr)
