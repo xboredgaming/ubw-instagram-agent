@@ -24,6 +24,22 @@ ALERT_RECIPIENT = "xboredgaming@gmail.com"
 TMP_DIR = Path(__file__).parent.parent / ".tmp"
 
 
+def alert_once_today(key: str) -> bool:
+    """
+    True the first time it's called for `key` today, False after.
+
+    The 4 daily slots would otherwise send the same alert 4x/day for as long as
+    the problem lasts. .tmp/ is cached per Lima date, so the marker survives
+    across the day's runs.
+    """
+    TMP_DIR.mkdir(exist_ok=True)
+    marker = TMP_DIR / f"alerted_{key}_{date.today()}"
+    if marker.exists():
+        return False
+    marker.touch()
+    return True
+
+
 def _send_email(subject: str, body_text: str, body_html: str = None) -> bool:
     sender   = os.getenv("GMAIL_SENDER")
     password = (os.getenv("GMAIL_APP_PASSWORD") or "").replace(" ", "")
@@ -75,6 +91,8 @@ def send_token_alert(error_message: str, expiring_in_days: int = None):
     Meta's long-lived tokens last 60 days. The May 2026 token lapsed silently on
     2026-07-16 and cost ~4 weeks of posts, so this is deliberately loud.
     """
+    alert_once_today("any_alert")  # suppress the generic failure email for the rest of today
+
     if expiring_in_days is not None:
         subject = f"⚠️ UBW Instagram — access token expires in {expiring_in_days} days"
         opening = (
@@ -106,7 +124,17 @@ def send_token_alert(error_message: str, expiring_in_days: int = None):
 
 
 def send_failure_alert(context: str, run_url: str = None):
-    """Alert when a scheduled run fails for any reason not caught upstream."""
+    """
+    Alert when a scheduled run fails for a reason not caught upstream.
+
+    Sends at most once per day, and stays quiet entirely if a more specific
+    alert (e.g. the token alert, which already explains the fix) went out today.
+    A known-broken agent should not mail four times a day.
+    """
+    if not alert_once_today("any_alert"):
+        print("[alert] An alert already went out today — skipping failure email.", file=sys.stderr)
+        return
+
     subject = "🚨 UBW Instagram Agent — scheduled run failed"
     body = (
         "A scheduled run of the UBW Instagram agent failed.\n\n"
